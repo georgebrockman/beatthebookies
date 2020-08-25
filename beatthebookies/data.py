@@ -88,13 +88,13 @@ def get_full_totals(df):
         return total_draws[0]
 
     df['home_t_total_goals'] = df.apply(lambda x: ht_total_goals( x['stage'], x['home_team'], x['home_t_home_goals']), axis=1)
-    df['home_t_total_goals_against'] = df.apply(lambda x: ht_total_goals_agst( x['stage'], x['home_team'], x['home_t_home_goals']), axis=1)
+    df['home_t_total_goals_against'] = df.apply(lambda x: ht_total_goals_agst( x['stage'], x['home_team'], x['home_t_home_goals_against']), axis=1)
     df['home_t_total_wins'] = df.apply(lambda x: ht_total_wins( x['stage'], x['home_team'], x['home_t_home_wins']), axis=1)
     df['home_t_total_losses'] = df.apply(lambda x: ht_total_losses( x['stage'], x['home_team'], x['home_t_home_losses']), axis=1)
     df['home_t_total_draws'] = df.apply(lambda x: ht_total_draws( x['stage'], x['home_team'], x['home_t_home_draws']), axis=1)
 
     df['away_t_total_goals'] = df.apply(lambda x: at_total_goals( x['stage'], x['away_team'], x['away_t_away_goals']), axis=1)
-    df['away_t_total_goals_against'] = df.apply(lambda x: at_total_goals_agst( x['stage'], x['away_team'], x['away_t_away_goals']), axis=1)
+    df['away_t_total_goals_against'] = df.apply(lambda x: at_total_goals_agst( x['stage'], x['away_team'], x['away_t_away_goals_against']), axis=1)
     df['away_t_total_wins'] = df.apply(lambda x: at_total_wins( x['stage'], x['away_team'], x['away_t_away_wins']), axis=1)
     df['away_t_total_losses'] = df.apply(lambda x: at_total_losses( x['stage'], x['away_team'], x['away_t_away_losses']), axis=1)
     df['away_t_total_draws'] = df.apply(lambda x: at_total_draws( x['stage'], x['away_team'], x['away_t_away_draws']), axis=1)
