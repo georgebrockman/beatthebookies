@@ -101,8 +101,6 @@ def get_full_totals(df):
 
     return df
 
-
-
 def get_totals(df):
     df['home_w'] = 0
     df['away_w'] = 0
@@ -162,9 +160,38 @@ def get_data(season='2015/2016', league=1729, local=False, optimize=False, **kwa
 
     return df
 
+@simple_time_tracker
+def get_betting_data(season='2015/2016', league=1729, local=False, optimize=False, **kwargs):
+    path = "../data/"
+    database = path + 'database.sqlite'
+    conn = sqlite3.connect(database)
+
+    df = pd.read_sql("""SELECT m.id,
+                            m.season, m.stage, m.date,
+                            ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
+                            m.away_team_goal, m.LBH, m.LBD, m.LBA
+                            FROM Match as m
+                            LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
+                            LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id
+                            WHERE league_id = :league AND season = :season
+                            ;""", conn, params={"league":league, "season":season})
+    # add win columns
+    df['home_w'] = 0
+    df['away_w'] = 0
+    df['draw'] = 0
+    # set winner
+    df.loc[df['home_team_goal'] > df['away_team_goal'], 'home_w'] = 1
+    df.loc[df['home_team_goal'] < df['away_team_goal'], 'away_w'] = 1
+    df.loc[df['home_team_goal'] == df['away_team_goal'], 'draw'] = 1
+    # sort into order
+    df.sort_values('date', inplace=True)
+
+    return df
+
 
 if __name__ == "__main__":
     df = get_data()
+    df = get_betting_data()
 
 
 
