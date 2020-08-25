@@ -9,7 +9,8 @@ from beatthebookies.lib import clean_data
 import pytest
 
 
-# def test_clean_data():
+def test_clean_data():
+      1 == 1
 #     datapath = os.path.dirname(os.path.abspath(beatthebookies.__file__)) + '/data'
 #     df = pd.read_csv('{}/data.csv.gz'.format(datapath))
 #     first_cols = ['id', 'civility', 'birthdate', 'city', 'postal_code', 'vote_1']
