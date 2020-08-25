@@ -12,15 +12,19 @@ def get_full_totals(df):
             return 0
         total_goals = df[(df['stage'] < st) & (df['away_team'] == ht)]\
             .groupby('away_team')['away_team_goal'].sum() + hg
-        return total_goals[0]
+        if len(total_goals) > 0:
+            return total_goals[0]
+        return 0
 
     def ht_total_goals_agst(st, ht, hga):
         ''' finds away goals scored against the home team '''
         if st == 1:
             return 0
-        total_goals_ag = df[(df['stage'] < st) & (df['away_team'] == ht)]\
+        total_goals = df[(df['stage'] < st) & (df['away_team'] == ht)]\
             .groupby('away_team')['home_team_goal'].sum() + hga
-        return total_goals_ag[0]
+        if len(total_goals) > 0:
+            return total_goals[0]
+        return 0
 
     def ht_total_wins(st, ht, hw):
         ''' finds away wins for the home team '''
@@ -28,7 +32,9 @@ def get_full_totals(df):
             return 0
         total_wins = df[(df['stage'] < st) & (df['away_team'] == ht)]\
             .groupby('away_team')['away_w'].sum() + hw
-        return total_wins[0]
+        if len(total_wins) >0:
+            return total_wins[0]
+        return 0
 
     def ht_total_losses(st, ht, hl):
         ''' finds away losses for the home team '''
@@ -36,7 +42,9 @@ def get_full_totals(df):
             return 0
         total_losses = df[(df['stage'] < st) & (df['away_team'] == ht)]\
             .groupby('away_team')['home_w'].sum() + hl
-        return total_losses[0]
+        if len(total_losses) > 0:
+            return total_losses[0]
+        return 0
 
     def ht_total_draws(st, ht, hd):
         ''' finds away draws for the home team '''
@@ -44,7 +52,9 @@ def get_full_totals(df):
             return 0
         total_draws = df[(df['stage'] < st) & (df['away_team'] == ht)]\
             .groupby('away_team')['draw'].sum() + hd
-        return total_draws[0]
+        if len(total_draws) > 0:
+            return total_draws[0]
+        return 0
 
 
     def at_total_goals(st, at, ag):
@@ -53,7 +63,9 @@ def get_full_totals(df):
             return 0
         total_goals = df[(df['stage'] < st) & (df['home_team'] == at)]\
             .groupby('home_team')['home_team_goal'].sum() + ag
-        return total_goals[0]
+        if len(total_goals) > 0:
+            return total_goals[0]
+        return 0
 
     def at_total_goals_agst(st, at, aga):
         ''' finds home goals scored against the away team '''
@@ -61,7 +73,9 @@ def get_full_totals(df):
             return 0
         total_goals = df[(df['stage'] < st) & (df['home_team'] == at)]\
             .groupby('home_team')['away_team_goal'].sum() + aga
-        return total_goals[0]
+        if len(total_goals) > 0:
+            return total_goals[0]
+        return 0
 
     def at_total_wins(st, at, aw):
         ''' finds home wins for the away team '''
@@ -69,7 +83,9 @@ def get_full_totals(df):
             return 0
         total_wins = df[(df['stage'] < st) & (df['home_team'] == at)]\
             .groupby('home_team')['home_w'].sum() + aw
-        return total_wins[0]
+        if len(total_wins) >0:
+            return total_wins[0]
+        return 0
 
     def at_total_losses(st, at, al):
         ''' finds home losses for the away team '''
@@ -77,7 +93,9 @@ def get_full_totals(df):
             return 0
         total_losses = df[(df['stage'] < st) & (df['home_team'] == at)]\
             .groupby('home_team')['away_w'].sum() + al
-        return total_losses[0]
+        if len(total_losses) > 0:
+            return total_losses[0]
+        return 0
 
     def at_total_draws(st, at, ad):
         ''' finds home draws for the away team '''
@@ -85,7 +103,10 @@ def get_full_totals(df):
             return 0
         total_draws = df[(df['stage'] < st) & (df['home_team'] == at)]\
             .groupby('home_team')['draw'].sum() + ad
-        return total_draws[0]
+        if len(total_draws) > 0:
+            return total_draws[0]
+        return 0
+
 
     df['home_t_total_goals'] = df.apply(lambda x: ht_total_goals( x['stage'], x['home_team'], x['home_t_home_goals']), axis=1)
     df['home_t_total_goals_against'] = df.apply(lambda x: ht_total_goals_agst( x['stage'], x['home_team'], x['home_t_home_goals_against']), axis=1)
@@ -141,9 +162,9 @@ def get_totals(df):
     return df
 
 
-@simple_time_tracker
+# @simple_time_tracker
 def get_data(season='2015/2016', league=1729, local=False, optimize=False, **kwargs):
-    path = "../data/"
+    path = "data/"
     database = path + 'database.sqlite'
     conn = sqlite3.connect(database)
 
@@ -163,8 +184,13 @@ def get_data(season='2015/2016', league=1729, local=False, optimize=False, **kwa
     return df
 
 
+
+
 if __name__ == "__main__":
-    df = get_data()
+    df = get_data(season='2008/2009')
+
+
+
 
 
 
