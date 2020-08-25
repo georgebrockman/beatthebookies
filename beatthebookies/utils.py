@@ -1,6 +1,11 @@
 import time
 
-
+def compute_accuracy(y_pred, y_true):
+    wrong = abs(y_pred - y_true)
+    print(y_pred[0:10])
+    print(y_true[0:10])
+    print(wrong[0:10])
+    return wrong.sum()
 
 
 
