@@ -15,7 +15,10 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, R
 from xgboost import XGBRegressor
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
+from tempfile import mkdtemp
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -78,21 +81,38 @@ class Trainer(object):
         model.set_params(**estimator_params)
         return model
 
-
-
-        return model
-
     def set_pipeline(self):
+       #  memory = self.kwargs.get("pipeline_memory", None)
+       #  feateng_steps = self.kwargs.get("feateng", ["normalise", "standardise"])
+       #  if memory:
+       #      memory = mkdtemp()
+       #  # adding temporay row choices for each transformer to see if it works
+       #  feateng_blocks = ColumnTransformer([
+       #    ('normalise', CustomNormaliser(), )
+       #    ('standardise', CustomStandardScaler(), )
+       #    ])
 
-        # features_encoder = ColumnTransformer([
-        #     ('distance', DistanceTransformer(), list(DIST_ARGS.values())),
-        #     ('time_features', pipe_time_features, ['pickup_datetime']),
-        #     ('distance_to_center', pipe_d2center,list(DIST_ARGS.values())),
-        #     ('geohash', pipe_geohash, list(DIST_ARGS.values()))
-        # ])
+       #  pipe_standard = make_pipeline(CustomStandardScaler())
+       #  pipe_normalise = make_pipeline(CustomNormaliser())
 
+       #  features_encoder = ColumnTransformer(feateng_blocks, n_jobs=None,\
+       #   remainder="drop")
+       #  # features_encoder = ColumnTransformer([
+       #  #     ('distance', DistanceTransformer(), list(DIST_ARGS.values())),
+       #  #     ('time_features', pipe_time_features, ['pickup_datetime']),
+       #  #     ('distance_to_center', pipe_d2center,list(DIST_ARGS.values())),
+       #  #     ('geohash', pipe_geohash, list(DIST_ARGS.values()))
+       #  # ])
 
-        self.pipeline = Pipeline(steps=[('rgs', self.get_estimator())])
+       #  # Filter out some bocks according to input parameters
+       #  for bloc in feateng_blocks:
+       #      if bloc[0] not in feateng_steps:
+       #          feateng_blocks.remove(bloc)
+        pipe_scale = ColumnTransformer(StandardScaler())
+
+        self.pipeline = Pipeline(steps=[
+          ('scale', pipe_scale),
+          ('rgs', self.get_estimator())], memory=memory)
 
 
     @simple_time_tracker
