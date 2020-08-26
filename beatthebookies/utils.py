@@ -1,5 +1,25 @@
 import time
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import classification_report
+from sklearn.metrics import precision_recall_fscore_support as score
+
+
+
+def compute_overall_scores(y_pred,y_true):
+    acc = accuracy_score(y_true,y_pred)
+    pre = precision_score(y_true,y_pred, average='weighted')
+    rec = recall_score(y_true,y_pred, average='weighted')
+    f1 = f1_score(y_true,y_pred, average='weighted')
+    scores =  [acc,pre,rec,f1]
+    return scores
+
+def compute_scores(y_pred,y_true):
+    precision,recall,fscore,support=score(y_true,y_pred)
+    scores = [precision,recall,fscore,support]
+    print(scores)
+    return scores
+
+
 
 
 def compute_accuracy(y_pred, y_true):
@@ -10,20 +30,25 @@ def compute_accuracy(y_pred, y_true):
     return wrong.sum()
 
 def compute2_accuracy(y_pred, y_true):
-    total = accuracy_score(y_true,y_pred)
-    # home = accuracy_score(y_true['home_w'],y_pred['home_w'])
-    # away = accuracy_score(y_true['away_w'],y_pred['away_w'])
-    # draw = accuracy_score(y_true['draw'],y_pred['draw'])
-    # scores = [total,home,away,draw]
-    return total
+    acc = accuracy_score(y_true,y_pred)
+    return acc
 
 def compute_precision(y_pred,y_true):
-    score = precision_score(y_true,y_pred, average='weighted')
+    #pre = precision_score(y_true,y_pred, average='weighted')
+    precision,recall,fscore,support=score(y_true,y_pred,average='weighted')
+    scores = [precision,recall,fscore,support]
+    print(scores)
     return score
 
 def compute_recall(y_pred,y_true):
     score = recall_score(y_true,y_pred, average='weighted')
     return score
+
+def compute_f1(y_pred,y_true):
+    score = f1_score(y_true,y_pred, average='weighted')
+    return score
+
+
 
 ################
 #  DECORATORS  #
