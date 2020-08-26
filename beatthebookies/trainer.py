@@ -7,10 +7,14 @@ from beatthebookies.utils import compute_accuracy, simple_time_tracker
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
-
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
+from xgboost import XGBRegressor
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
@@ -35,14 +39,46 @@ class Trainer(object):
             self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y,
                                                                                   test_size=0.3, random_state=15)
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
+        self.model_params = None
 
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
         self.mlflow_log_param("model", estimator)
-
-        if estimator == 'logistic':
+        # added both regressions for predicting scores and classifier for match outcomes
+        if estimator == 'Logistic':
             model = LogisticRegression()
+        elif estimator == 'Linear':
+            model = LinearRegression()
+        elif estimator == 'RandomForestClassifier':
+            model = RandomForestClassifier()
+        elif estimator == 'RandomForestRegressor':
+            model = RandomForestRegressor()
+        elif estimator == 'Lasso':
+            model = Lasso()
+        elif estimator == "Ridge":
+            model = Ridge()
+        elif estimator == "GBM":
+            model = GradientBoostingRegressor()
+        elif estimator == "KNNClassifier":
+            model = KNeighborsClassifier()
+        elif estimator == "KNNRegressor":
+            model = KNeighborsRegressor()
+        elif estimator == 'GaussianNB':
+            model = GaussianNB()
+        elif estimator == "xgboost":
+            model = XGBRegressor()
+        elif estimator == "SVC":
+            model = SVC()
+            self.model_params = { 'kernel': [['linear', 'poly', 'rbf']]}
+        else:
+            model = LogisticRegression()
+        estimator_params = self.kwargs.get("estimator_params", {})
+        self.mlflow_log_param("estimator", estimator)
+        model.set_params(**estimator_params)
+        return model
+
+
 
         return model
 
@@ -117,13 +153,25 @@ class Trainer(object):
 if __name__ == '__main__':
     seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
              '2013/2014', '2014/2015', '2015/2016']
-    df = get_data(season='2008/2009')
+    experiment = "BeatTheBookies"
+    params = dict(season='2008/2009',
+                  upload=True,
+                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  gridsearch=False,
+                  optimize=False,
+                  estimator="Logistic",
+                  mlflow=True,  # set to True to log params to mlflow
+                  experiment_name=experiment,
+                  pipeline_memory=None,
+                  feateng=None,
+                  n_jobs=-1)
+    df = get_data(**params)
     for year in seasons:
         x = get_data(season=year)
         df = pd.concat([df, x], axis=0)
     X = df.drop(columns=['id', 'season', 'date', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     y = df['home_w']
-    t = Trainer(X=X, y=y)
+    t = Trainer(X=X, y=y, **params)
     t.train()
     t.evaluate()
 
