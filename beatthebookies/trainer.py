@@ -3,7 +3,7 @@ import time
 import pandas as pd
 # import warnings
 from beatthebookies.data import get_data
-from beatthebookies.utils import compute_accuracy, simple_time_tracker
+from beatthebookies.utils import compute_accuracy, simple_time_tracker, compute2_accuracy, compute_precision, compute_recall
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
@@ -129,21 +129,21 @@ class Trainer(object):
         self.mlflow_log_metric("accuracy", acc)
         return round(acc, 3)
 
-     def evaluateall(self):
-          if self.pipeline is None:
-              raise ("Cannot evaluate an empty pipeline")
-          y_pred = self.pipeline.predict(self.X_test)
-          acc = compute2_accuracy(y_pred, self.y_test)
-          pre = compute_precision(y_pred,self.y_test)
-          rec = compute_recall(y_pred,self.y_test)
-          self.mlflow_log_metric("total accuracy", acc[0])
-          self.mlflow_log_metric("home_w accuracy", acc[1])
-          self.mlflow_log_metric("away_w accuracy", acc[2])
-          self.mlflow_log_metric("draw accuracy", acc[3])
+    def evaluateall(self):
+        if self.pipeline is None:
+            raise ("Cannot evaluate an empty pipeline")
+        y_pred = self.pipeline.predict(self.X_test)
+        acc = compute2_accuracy(y_pred, self.y_test)
+        pre = compute_precision(y_pred,self.y_test)
+        rec = compute_recall(y_pred,self.y_test)
+        self.mlflow_log_metric("total accuracy", acc)
+        # self.mlflow_log_metric("home_w accuracy", acc[1])
+        # self.mlflow_log_metric("away_w accuracy", acc[2])
+        # self.mlflow_log_metric("draw accuracy", acc[3])
 
-          self.mlflow_log_metric("precision", pre)
-          self.mlflow_log_metric("recall", rec)
-          return 'Accuracy:{} || Prcision: {} || Recall: {}'.format(round(acc[0], 3), round(pre,3), round(rec,3))
+        self.mlflow_log_metric("precision", pre)
+        self.mlflow_log_metric("recall", rec)
+        return 'Accuracy:{} || Prcision: {} || Recall: {}'.format(round(acc, 3), round(pre,3), round(rec,3))
 
 
     @memoized_property
@@ -179,19 +179,16 @@ if __name__ == '__main__':
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   optimize=False,
-                  estimator="Logistic",
+                  estimator="KNNClassifier",
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
                   feateng=None,
                   n_jobs=-1)
     df = get_data(**params)
-    for year in seasons:
-        x = get_data(season=year)
-        df = pd.concat([df, x], axis=0)
     X = df.drop(columns=['id', 'season', 'date', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
-    y = df['home_w']
+    y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
-    t.evaluate()
+    t.evaluateall()
 
