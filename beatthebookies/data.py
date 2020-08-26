@@ -6,6 +6,37 @@ import sqlite3
 from beatthebookies.utils import simple_time_tracker
 
 
+
+def get_rankings(df):
+
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    sql_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
+    # sql_path = '../data/'
+    database = sql_path + 'database.sqlite'
+    conn = sqlite3.connect(database)
+
+    home_stats = pd.read_sql(""" SELECT ta.date, ta.team_api_id, ta.buildUpPlaySpeed as bups,
+                          buildUpPlayPassing as bupp, chanceCreationPassing as ccp, chanceCreationCrossing as ccc,
+                          chanceCreationShooting as ccs, defencePressure as dp, defenceAggression as da, defenceTeamWidth as dtw
+                          FROM Team_Attributes as ta""", conn)
+
+    home_stats['date'] = pd.to_datetime(home_stats['date'])
+    home_stats['year'] = pd.DatetimeIndex(home_stats['date']).year
+    season_maps = {2010: '2009/2010', 2011: '2010/2011', 2012:'2011/2012',
+                 2013:'2013/2014', 2014: '2014/2015', 2015:'2015/2016'}
+    home_stats['season'] = home_stats['year'].map(season_maps)
+    home_stats = home_stats.drop(columns=['date','year'])
+    away_stats = home_stats.copy()
+
+    df = pd.merge(df, home_stats, how='left', left_on=['season', 'home_api'], right_on=['season', 'team_api_id'])
+    df = df.drop(columns=['home_api','team_api_id'])
+    df = pd.merge(df, away_stats, how='left', left_on=['season', 'away_api'], right_on=['season', 'team_api_id'])
+    df = df.drop(columns=['away_api','team_api_id'])
+
+    return df
+
+
+
 def get_opp_totals(df):
 
     def opposite_stat(x, team='away_team', stat='home_team_goal'):
@@ -83,7 +114,7 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
         df = pd.read_sql("""SELECT m.id,
                                 m.season, m.stage, m.date,
                                 ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
-                                m.away_team_goal
+                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api
                                 FROM Match as m
                                 LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
                                 LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id
@@ -93,7 +124,7 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
         df = pd.read_sql("""SELECT m.id,
                                 m.season, m.stage, m.date,
                                 ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
-                                m.away_team_goal
+                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api
                                 FROM Match as m
                                 LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
                                 LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id
@@ -104,6 +135,7 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
     df = get_winner(df)
     df = get_loc_totals(df)
     df = get_opp_totals(df)
+    df = get_rankings(df)
 
     return df
 
@@ -115,7 +147,7 @@ def get_betting_data(season='2015/2016', league=1729, local=False, optimize=Fals
 
     df = pd.read_sql("""SELECT m.id,
                             m.season, m.stage, m.date,
-                            ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
+                            ht.team_long_name as home_team,  at.team_long_name as away_team, m.home_team_goal,
                             m.away_team_goal, m.LBH, m.LBD, m.LBA
                             FROM Match as m
                             LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
