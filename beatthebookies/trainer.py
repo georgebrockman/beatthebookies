@@ -3,7 +3,7 @@ import time
 import pandas as pd
 # import warnings
 from beatthebookies.data import get_data
-from beatthebookies.utils import compute_accuracy, simple_time_tracker, compute2_accuracy, compute_precision, compute_recall
+from beatthebookies.utils import compute_accuracy, simple_time_tracker, compute2_accuracy, compute_precision, compute_recall, compute_f1, compute_scores, compute_overall_scores
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
@@ -101,29 +101,35 @@ class Trainer(object):
         self.set_pipeline()
         self.pipeline.fit(self.X_train, self.y_train)
 
+
     def evaluate(self):
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
         y_pred = self.pipeline.predict(self.X_test)
-        acc = compute_accuracy(y_pred, self.y_test)
-        self.mlflow_log_metric("accuracy", acc)
-        return round(acc, 3)
+        overall_scores = compute_overall_scores(y_pred,self.y_test)
+        scores = compute_scores(y_pred,self.y_test)
+        self.mlflow_log_metric("accuracy",overall_scores[0])
 
-    def evaluateall(self):
-        if self.pipeline is None:
-            raise ("Cannot evaluate an empty pipeline")
-        y_pred = self.pipeline.predict(self.X_test)
-        acc = compute2_accuracy(y_pred, self.y_test)
-        pre = compute_precision(y_pred,self.y_test)
-        rec = compute_recall(y_pred,self.y_test)
-        self.mlflow_log_metric("total accuracy", acc)
-        # self.mlflow_log_metric("home_w accuracy", acc[1])
-        # self.mlflow_log_metric("away_w accuracy", acc[2])
-        # self.mlflow_log_metric("draw accuracy", acc[3])
+        self.mlflow_log_metric("precision",overall_scores[1])
+        self.mlflow_log_metric("precision_home",scores[0][0])
+        self.mlflow_log_metric("precision_away",scores[0][1])
+        self.mlflow_log_metric("precision_draw",scores[0][2])
 
-        self.mlflow_log_metric("precision", pre)
-        self.mlflow_log_metric("recall", rec)
-        return 'Accuracy:{} || Prcision: {} || Recall: {}'.format(round(acc, 3), round(pre,3), round(rec,3))
+        self.mlflow_log_metric("recall",overall_scores[2])
+        self.mlflow_log_metric("recall_home",scores[1][0])
+        self.mlflow_log_metric("recall_away",scores[1][1])
+        self.mlflow_log_metric("recall_draw",scores[1][2])
+
+        self.mlflow_log_metric("f1",overall_scores[3])
+        self.mlflow_log_metric("f1_home",scores[2][0])
+        self.mlflow_log_metric("f1_away",scores[2][1])
+        self.mlflow_log_metric("f1_draw",scores[2][2])
+
+        self.mlflow_log_metric("support_home",scores[3][0])
+        self.mlflow_log_metric("support_away",scores[3][1])
+        self.mlflow_log_metric("support_draw",scores[3][2])
+
+        return scores
 
 
     @memoized_property
@@ -170,5 +176,5 @@ if __name__ == '__main__':
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
-    t.evaluateall()
+    t.evaluate()
 
