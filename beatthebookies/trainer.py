@@ -108,11 +108,11 @@ class Trainer(object):
        #  for bloc in feateng_blocks:
        #      if bloc[0] not in feateng_steps:
        #          feateng_blocks.remove(bloc)
-        pipe_scale = ColumnTransformer(StandardScaler())
+        # pipe_scale = ColumnTransformer(StandardScaler())
 
         self.pipeline = Pipeline(steps=[
-          ('scale', pipe_scale),
-          ('rgs', self.get_estimator())], memory=memory)
+          ('scale', StandardScaler()),
+          ('rgs', self.get_estimator())])
 
 
     @simple_time_tracker
