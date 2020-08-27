@@ -15,10 +15,11 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, R
 from xgboost import XGBRegressor
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.compose import ColumnTransformer
 from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 from tempfile import mkdtemp
+
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -50,7 +51,7 @@ class Trainer(object):
         self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         if estimator == 'Logistic':
-            model = LogisticRegression()
+            model = LogisticRegression(solver='newton-cg')
         elif estimator == 'Linear':
             model = LinearRegression()
         elif estimator == 'RandomForestClassifier':
@@ -177,10 +178,11 @@ class Trainer(object):
 
 
 if __name__ == '__main__':
-    seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
-             '2013/2014', '2014/2015', '2015/2016']
+    # seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
+    #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"
-    params = dict(season='2008/2009',
+    params = dict(season='2015/2016',
+                  full=True,
                   upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
@@ -192,7 +194,9 @@ if __name__ == '__main__':
                   feateng=None,
                   n_jobs=-1)
     df = get_data(**params)
-    X = df.drop(columns=['id', 'season', 'date', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
+    df.dropna(inplace=True)
+    print(df.shape)
+    X = df.drop(columns=['id', 'season', 'date', 'stage', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
