@@ -189,7 +189,7 @@ if __name__ == '__main__':
     #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"
     params = dict(season='2015/2016',
-                  full=False,
+                  full=True,
                   upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
@@ -200,8 +200,9 @@ if __name__ == '__main__':
                   pipeline_memory=None,
                   feateng=None,
                   n_jobs=-1)
+
     df = get_csv_data(**params)
-    betting_data = get_betting_data(**params)
+    # betting_data = get_betting_data(**params)
     bet = 10
     df.dropna(inplace=True)
     print(df.shape)
