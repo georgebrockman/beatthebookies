@@ -2,7 +2,7 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-from beatthebookies.data import get_data, get_csv_data
+from beatthebookies.data import get_data, get_csv_data, get_betting_data, get_temp
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 # from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 
@@ -53,7 +53,7 @@ class Trainer(object):
         self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         if estimator == 'Logistic':
-            model = LogisticRegression(solver='newton-cg')
+            model = LogisticRegression(solver='lbfgs')
         elif estimator == 'Linear':
             model = LinearRegression()
         elif estimator == 'RandomForestClassifier':
@@ -153,8 +153,13 @@ class Trainer(object):
         self.mlflow_log_metric("support_away",scores[3][1])
         self.mlflow_log_metric("support_draw",scores[3][2])
 
-        profit = compute_profit(self.X_test[['WHH', 'WHA','WHD']],y_pred,self.y_test,bet)
-        self.mlflow_log_metric("profit",profit)
+        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test[['WHH', 'WHA','WHD']],y_pred,self.y_test,bet)
+        self.mlflow_log_metric("profit_model",profit)
+        self.mlflow_log_metric("prof_favorites",fav_profit_total)
+        self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        self.mlflow_log_metric("prof_home", home_profit_total)
+        self.mlflow_log_metric("prof_draw", draw_profit_total)
+        self.mlflow_log_metric("prof_away", away_profit_total)
 
         return scores
 
@@ -194,19 +199,22 @@ if __name__ == '__main__':
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   optimize=False,
-                  estimator="KNNClassifier",
+                  estimator="RandomForestClassifier",
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
                   feateng=None,
                   n_jobs=-1)
-
-    df = get_csv_data(**params)
+    # df = get_csv_data(**params)
+    df = get_temp()
     # betting_data = get_betting_data(**params)
     bet = 10
     df.dropna(inplace=True)
     print(df.shape)
-    X = df.drop(columns=['id', 'season', 'date', 'stage', 'Referee', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
+    X = df.drop(columns=['season', 'date', 'stage', 'FTR', 'HTHG', 'HTAG', 'HTR',
+        'home_shots',  'away_shots', 'home_shots_targ', 'away_shots_targ', 'home_fouls',
+        'away_fouls',  'HC',  'AC',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
+        'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
