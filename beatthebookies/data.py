@@ -1,9 +1,13 @@
+import itertools
 import os
 import pandas as pd
 import numpy as np
 import sqlite3
 
 from beatthebookies.utils import simple_time_tracker
+
+
+
 
 
 
@@ -71,8 +75,8 @@ def get_opp_totals(df):
 
     return df
 
+
 def get_loc_totals(df):
-    # home team goal stats
     df['home_t_home_goals'] = df.groupby(['season','home_team'])['home_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['home_t_home_goals_against'] = df.groupby(['season','home_team'])['away_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     # home team win stats
@@ -87,19 +91,30 @@ def get_loc_totals(df):
     df['away_t_away_losses'] = df.groupby(['season','away_team'])['home_w'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['away_t_away_draws'] = df.groupby(['season','away_team'])['draw'].apply(lambda x  : x.cumsum().shift(fill_value=0))
 
+
+
+
+
     return df
 
 
 def get_winner(df):
     df['home_w'] = 0
-    df['away_w'] = 0
     df['draw'] = 0
-    # set winner
-    df.loc[df['home_team_goal'] > df['away_team_goal'], 'home_w'] = 1
-    df.loc[df['home_team_goal'] < df['away_team_goal'], 'away_w'] = 1
-    df.loc[df['home_team_goal'] == df['away_team_goal'], 'draw'] = 1
+    df['away_w'] = 0
+    # set winner sql
+    # df.loc[df['home_team_goal'] > df['away_team_goal'], 'home_w'] = 1
+    # df.loc[df['home_team_goal'] < df['away_team_goal'], 'away_w'] = 1
+    # df.loc[df['home_team_goal'] == df['away_team_goal'], 'draw'] = 1
+
+    # set winner csv
+    df.loc[df['FTR'] == 'H', 'home_w'] = 1
+    df.loc[df['FTR'] == 'D', 'draw'] = 1
+    df.loc[df['FTR'] == 'A' , 'away_w'] = 1
 
     return df
+
+
 
 
 @simple_time_tracker
@@ -132,12 +147,47 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
                                 ;""", conn, params={"league":league, "season":season})
 
     df.sort_values('date', inplace=True)
+    # df = get_winner(df)
+    # df = get_loc_totals(df)
+    # df = get_opp_totals(df)
+    # df = get_rankings(df)
+
+    return df
+
+
+
+
+
+
+
+
+
+@simple_time_tracker
+def get_csv_data(season='2015/2016', league=1729, full=False, local=False, optimize=False, **kwargs):
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    csv_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
+    file = csv_path + 'data.csv'
+    df = pd.read_csv(file)
+    df.drop(columns='Unnamed: 0', inplace=True)
+    df.rename(columns={'Date': 'date', 'Season': 'season','HomeTeam': 'home_team', 'AwayTeam': 'away_team', 'FTHG': 'home_team_goal', 'FTAG': 'away_team_goal',
+                        'HS': 'home_shots', 'HST': 'home_shots_targ', 'AS': 'away_shots', 'AST': 'away_shots_targ',
+                        'HF': 'home_fouls', 'AF': 'away_fouls', 'HY': 'home_yel', 'AY': 'away_yel', 'HR': 'home_red', 'AR': 'away_red'}, inplace=True)
+    df['date'] = pd.to_datetime(df['date'], dayfirst=True)
+    df.sort_values('date', inplace=True)
+    # number of weeks in the season
+    lst = range(1,39)
+    # number of games in a week
+    season = list(itertools.chain.from_iterable(itertools.repeat(x, 10) for x in lst))
+    # of seasons in dataset
+    full = list(itertools.chain.from_iterable(itertools.repeat(season, 12)))
+    df['stage'] = full
+
     df = get_winner(df)
     df = get_loc_totals(df)
     df = get_opp_totals(df)
-    df = get_rankings(df)
 
     return df
+
 
 @simple_time_tracker
 def get_betting_data(season='2015/2016', league=1729, local=False, optimize=False, **kwargs):

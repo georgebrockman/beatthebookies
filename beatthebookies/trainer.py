@@ -2,7 +2,7 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-from beatthebookies.data import get_data
+from beatthebookies.data import get_data, get_csv_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 # from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 
@@ -200,12 +200,12 @@ if __name__ == '__main__':
                   pipeline_memory=None,
                   feateng=None,
                   n_jobs=-1)
-    df = get_data(**params)
+    df = get_csv_data(**params)
     betting_data = get_betting_data(**params)
     bet = 10
     df.dropna(inplace=True)
     print(df.shape)
-    X = df.drop(columns=['id', 'season', 'date', 'stage', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
+    X = df.drop(columns=['id', 'season', 'date', 'stage', 'Referee', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
