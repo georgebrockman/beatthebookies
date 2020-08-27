@@ -12,27 +12,27 @@ def simple_betting_profits(df, bet=10):
     # create new column for fav strategy
     df['fav_profit'] = -bet
     # update profit column - (odds * bet) - stake
-    df.loc[(df[['LBH','LBD','LBA']].min(axis=1) == df['LBH']) & (df['home_w'] == 1), 'fav_profit'] = (df['LBH'] * bet) - bet
-    df.loc[(df[['LBH','LBD','LBA']].min(axis=1) == df['LBD']) & (df['draw'] == 1), 'fav_profit'] = (df['LBD'] * bet) - bet
-    df.loc[(df[['LBH','LBD','LBA']].min(axis=1) == df['LBA']) & (df['away_w'] == 1), 'fav_profit'] = (df['LBA'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].min(axis=1) == df['WHH']) & (df['home_w'] == 1), 'fav_profit'] = (df['WHH'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].min(axis=1) == df['WHD']) & (df['draw'] == 1), 'fav_profit'] = (df['WHD'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].min(axis=1) == df['WHA']) & (df['away_w'] == 1), 'fav_profit'] = (df['WHA'] * bet) - bet
 
     # set defaults profit equal to bet size
     # create new column for underdog strategy
     df['dog_profit'] = -bet
     # update profit column
-    df.loc[(df[['LBH','LBD','LBA']].max(axis=1) == df['LBH']) & (df['home_w'] == 1), 'dog_profit'] = (df['LBH'] * bet) - bet
-    df.loc[(df[['LBH','LBD','LBA']].max(axis=1) == df['LBD']) & (df['draw'] == 1), 'dog_profit'] = (df['LBD'] * bet) - bet
-    df.loc[(df[['LBH','LBD','LBA']].max(axis=1) == df['LBA']) & (df['away_w'] == 1), 'dog_profit'] = (df['LBA'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].max(axis=1) == df['WHH']) & (df['home_w'] == 1), 'dog_profit'] = (df['WHH'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].max(axis=1) == df['WHD']) & (df['draw'] == 1), 'dog_profit'] = (df['WHD'] * bet) - bet
+    df.loc[(df[['WHH','WHD','WHA']].max(axis=1) == df['WHA']) & (df['away_w'] == 1), 'dog_profit'] = (df['WHA'] * bet) - bet
 
     # create new column for home team method
     df['home_profit'] = -bet
-    df.loc[(df['home_w'] == 1), 'home_profit'] = (df['LBH'] * bet) - bet
+    df.loc[(df['home_w'] == 1), 'home_profit'] = (df['WHH'] * bet) - bet
     # create new column for draw tactic
     df['draw_profit'] = -bet
-    df.loc[(df['draw'] == 1), 'draw_profit'] = (df['LBD'] * bet) - bet
+    df.loc[(df['draw'] == 1), 'draw_profit'] = (df['WHD'] * bet) - bet
     # create new column for betting on the away team
     df['away_profit'] = -bet
-    df.loc[(df['away_w'] == 1), 'away_profit'] = (df['LBA'] * bet) - bet
+    df.loc[(df['away_w'] == 1), 'away_profit'] = (df['WHA'] * bet) - bet
 
     fav_profit_total = df['fav_profit'].sum()
     dog_profit_total = df['dog_profit'].sum()

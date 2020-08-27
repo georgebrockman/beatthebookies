@@ -147,8 +147,8 @@ def get_betting_data(season='2015/2016', league=1729, local=False, optimize=Fals
 
     df = pd.read_sql("""SELECT m.id,
                             m.season, m.stage, m.date,
-                            ht.team_long_name as home_team,  at.team_long_name as away_team, m.home_team_goal,
-                            m.away_team_goal, m.LBH, m.LBD, m.LBA
+                            ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
+                            m.away_team_goal, m.WHH, m.WHD, m.WHA
                             FROM Match as m
                             LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
                             LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id
