@@ -16,7 +16,6 @@ def compute_overall_scores(y_pred,y_true):
 def compute_scores(y_pred,y_true):
     precision,recall,fscore,support=score(y_true,y_pred)
     scores = [precision,recall,fscore,support]
-    print(scores)
     return scores
 
     # for each game see whether our model predicted correct

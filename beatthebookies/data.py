@@ -188,6 +188,14 @@ def get_csv_data(season='2015/2016', league=1729, full=False, local=False, optim
 
     return df
 
+def get_temp():
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    csv_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
+    file = csv_path + 'tempfile.csv'
+    df = pd.read_csv(file)
+
+    return df
+
 
 @simple_time_tracker
 def get_betting_data(season='2015/2016', league=1729, local=False, optimize=False, **kwargs):

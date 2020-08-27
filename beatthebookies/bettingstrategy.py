@@ -52,4 +52,14 @@ def compute_profit(df,y_pred,y_true,bet):
     outcome['profit']=-bet
     outcome.loc[(outcome['sum']!= 0), 'profit'] = (outcome['sum']*bet)-bet
     btb_profit_total = outcome['profit'].sum()
-    return btb_profit_total
+    com_df = pd.concat([df,y_true], axis=1)
+    fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = simple_betting_profits(com_df)
+    return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
+
+
+
+
+
+
+
+
