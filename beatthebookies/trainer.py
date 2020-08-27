@@ -194,7 +194,7 @@ if __name__ == '__main__':
     #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"
     params = dict(season='2015/2016',
-                  full=False,
+                  full=True,
                   upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
