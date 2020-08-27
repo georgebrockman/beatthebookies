@@ -1,9 +1,11 @@
 import mlflow
+import warnings
 import time
 import pandas as pd
-# import warnings
-from beatthebookies.data import get_data, get_betting_data
+from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
+# from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
+
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
@@ -112,7 +114,7 @@ class Trainer(object):
         # pipe_scale = ColumnTransformer(StandardScaler())
 
         self.pipeline = Pipeline(steps=[
-          ('scale', StandardScaler()),
+          ('scale', RobustScaler()),
           ('rgs', self.get_estimator())])
 
 
@@ -181,6 +183,7 @@ class Trainer(object):
 
 
 if __name__ == '__main__':
+    warnings.simplefilter(action='ignore', category=FutureWarning)
     # seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
     #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"

@@ -39,35 +39,35 @@ def get_rankings(df):
 
 def get_opp_totals(df):
 
-    def opposite_stat(x, team='away_team', stat='home_team_goal'):
+    def opposite_stat(x, team='away_team', stat='home_team_goal', add='home_t_home_goals'):
         if x['stage'] == 1:
             return 0
         opp_team = 'away_team' if team == 'home_team' else 'home_team'
         opp_stat = df[(df['stage'] < x['stage']) & (df[opp_team] == x[team])]\
-            .groupby(['season', opp_team])[stat].sum()
+            .groupby(['season', opp_team])[stat].sum() + x[add]
         if len(opp_stat) > 0:
             return opp_stat[0]
         return 0
 
-    assign_zero = ['home_t_away_goals', 'home_t_away_goals_against','home_t_away_wins', 'home_t_away_losses',
-                  'home_t_away_draws','away_t_home_goals','away_t_home_goals_against', 'away_t_home_wins', 'away_t_home_losses',
-                  'away_t_home_draws']
+    assign_zero = ['home_t_total_goals', 'home_t_total_goals_against','home_t_total_wins', 'home_t_total_losses',
+                  'home_t_total_draws','away_t_total_goals','away_t_total_goals_against', 'away_t_total_wins', 'away_t_total_losses',
+                  'away_t_total_draws']
 
     for col in assign_zero:
         df[col] = 0
 
     # home team opposite stats
-    df['home_t_away_goals'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_team_goal' ), axis=1)
-    df['home_t_away_goals_against'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_team_goal' ), axis=1)
-    df['home_t_away_wins'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_w' ), axis=1)
-    df['home_t_away_losses'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_w' ), axis=1)
-    df['home_t_away_draws'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='draw'), axis=1)
+    df['home_t_total_goals'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_team_goal', add='home_t_home_goals' ), axis=1)
+    df['home_t_total_goals_against'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_team_goal', add='home_t_home_goals_against' ), axis=1)
+    df['home_t_total_wins'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_w', add='home_t_home_wins' ), axis=1)
+    df['home_t_total_losses'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_w', add='home_t_home_losses' ), axis=1)
+    df['home_t_total_draws'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='draw', add='home_t_home_draws'), axis=1)
     # away team opposite stats
-    df['away_t_home_goals'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_team_goal' ), axis=1)
-    df['away_t_home_goals_against'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_team_goal' ), axis=1)
-    df['away_t_home_wins'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_w' ), axis=1)
-    df['away_t_home_losses'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_w'), axis=1)
-    df['away_t_home_draws'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='draw' ), axis=1)
+    df['away_t_total_goals'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_team_goal', add='away_t_away_goals' ), axis=1)
+    df['away_t_total_goals_against'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_team_goal', add='away_t_away_goals_against' ), axis=1)
+    df['away_t_total_wins'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_w', add='away_t_away_wins'), axis=1)
+    df['away_t_total_losses'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_w', add='away_t_away_losses'), axis=1)
+    df['away_t_total_draws'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='draw', add='away_t_away_draws'), axis=1)
 
     return df
 
