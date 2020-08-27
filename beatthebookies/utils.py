@@ -19,6 +19,10 @@ def compute_scores(y_pred,y_true):
     print(scores)
     return scores
 
+    # for each game see whether our model predicted correct
+    # if yes, multiply betting amount times ratio
+    # compute overall profit
+
 
 ################
 #  DECORATORS  #

@@ -2,10 +2,10 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-# import warnings
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 # from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
+
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
@@ -19,8 +19,9 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.compose import ColumnTransformer
+#from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 from tempfile import mkdtemp
-
+from beatthebookies.bettingstrategy import compute_profit
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -124,7 +125,7 @@ class Trainer(object):
         self.pipeline.fit(self.X_train, self.y_train)
 
 
-    def evaluate(self):
+    def evaluate(self,betting_data,bet):
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
         y_pred = self.pipeline.predict(self.X_test)
@@ -150,6 +151,9 @@ class Trainer(object):
         self.mlflow_log_metric("support_home",scores[3][0])
         self.mlflow_log_metric("support_away",scores[3][1])
         self.mlflow_log_metric("support_draw",scores[3][2])
+
+        profit = compute_profit(betting_data,y_pred,self.y_test,bet)
+        self.mlflow_log_metric("profit",profit)
 
         return scores
 
@@ -184,7 +188,7 @@ if __name__ == '__main__':
     #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"
     params = dict(season='2015/2016',
-                  full=True,
+                  full=False,
                   upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
@@ -196,11 +200,13 @@ if __name__ == '__main__':
                   feateng=None,
                   n_jobs=-1)
     df = get_data(**params)
+    betting_data = get_betting_data(**params)
+    bet = 10
     df.dropna(inplace=True)
     print(df.shape)
     X = df.drop(columns=['id', 'season', 'date', 'stage', 'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
-    t.evaluate()
+    t.evaluate(betting_data,bet)
 

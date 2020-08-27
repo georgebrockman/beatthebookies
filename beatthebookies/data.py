@@ -141,8 +141,9 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
 
 @simple_time_tracker
 def get_betting_data(season='2015/2016', league=1729, local=False, optimize=False, **kwargs):
-    path = "../data/"
-    database = path + 'database.sqlite'
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    sql_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
+    database = sql_path + 'database.sqlite'
     conn = sqlite3.connect(database)
 
     df = pd.read_sql("""SELECT m.id,
