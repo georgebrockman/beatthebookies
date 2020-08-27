@@ -44,3 +44,12 @@ def simple_betting_profits(df, bet=10):
 
 def model_profits(df, bet=10):
     pass
+
+def compute_profit(df,y_pred,y_true,bet):
+    df['y_pred']= y_pred
+    df['y_true']= y_true
+    df['profit'] = -bet
+    df.loc[(df['y_pred'] == df['y_true']), 'profit'] = (((df['WHH']*df['home_w'])+(df['WHD']*df['draw'])+(df['WHA']*df['away_w'])) * bet) - bet
+    btb_profit_total = df['profit'].sum()
+    btb_profit = df['profit'].tail(1)
+    return btb_profit
