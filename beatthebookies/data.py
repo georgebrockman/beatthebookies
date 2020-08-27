@@ -114,7 +114,7 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
         df = pd.read_sql("""SELECT m.id,
                                 m.season, m.stage, m.date,
                                 ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
-                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api
+                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api, m.WHH, m.WHD, m.WHA
                                 FROM Match as m
                                 LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
                                 LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id
@@ -124,7 +124,7 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
         df = pd.read_sql("""SELECT m.id,
                                 m.season, m.stage, m.date,
                                 ht.team_long_name as home_team, at.team_long_name as away_team, m.home_team_goal,
-                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api
+                                m.away_team_goal, m.home_team_api_id as home_api, m.away_team_api_id as away_api, m.WHH, m.WHD, m.WHA
                                 FROM Match as m
                                 LEFT JOIN Team AS ht on ht.team_api_id = m.home_team_api_id
                                 LEFT JOIN Team AS at on at.team_api_id = m.away_team_api_id

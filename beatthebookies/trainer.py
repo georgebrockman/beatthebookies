@@ -120,13 +120,14 @@ class Trainer(object):
     def train(self):
         tic = time.time()
         self.set_pipeline()
-        self.pipeline.fit(self.X_train, self.y_train)
+        #x_train.drop(columns=['WHH', 'WHD', 'WHA'])
+        self.pipeline.fit(self.X_train.drop(columns=['WHH', 'WHD', 'WHA']), self.y_train)
 
 
-    def evaluate(self,betting_data,bet):
+    def evaluate(self,bet):
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
-        y_pred = self.pipeline.predict(self.X_test)
+        y_pred = self.pipeline.predict(self.X_test.drop(columns=['WHH', 'WHD', 'WHA']))
         overall_scores = compute_overall_scores(y_pred,self.y_test)
         scores = compute_scores(y_pred,self.y_test)
         self.mlflow_log_metric("accuracy",overall_scores[0])
@@ -150,7 +151,7 @@ class Trainer(object):
         self.mlflow_log_metric("support_away",scores[3][1])
         self.mlflow_log_metric("support_draw",scores[3][2])
 
-        profit = compute_profit(betting_data,y_pred,self.y_test,bet)
+        profit = compute_profit(self.X_test[['WHH', 'WHA','WHD']],y_pred,self.y_test,bet)
         self.mlflow_log_metric("profit",profit)
 
         return scores
@@ -205,5 +206,5 @@ if __name__ == '__main__':
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
-    t.evaluate(betting_data,bet)
+    t.evaluate(bet)
 
