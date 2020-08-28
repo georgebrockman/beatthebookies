@@ -51,8 +51,10 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
         X['H_GA_D'] = X['home_t_total_goals_against'] - X['away_t_total_goals_against']
         X['H_S_D'] = X['home_t_total_shots'] - X['away_t_total_shots']
         X['H_SA_D'] = X['home_t_total_shots_against'] - X['away_t_total_shots_against']
+        X['H_W_D'] = X['home_t_total_wins'] - X['away_t_total_wins']
+        X['H_L_D'] = X['home_t_total_losses'] - X['away_t_total_losses']
 
-        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_G_D', 'H_GA_D', 'H_S_D', 'H_SA_D']]
+        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_G_D', 'H_GA_D', 'H_S_D', 'H_SA_D', 'H_W_D', 'H_L_D']]
 
 # class FifaDifferentials2(BaseEstimator, TransformerMixin):
 
@@ -81,7 +83,7 @@ class GoalDifferentials(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, df, y=None):
-        assert isinstance(selfm df, y=None)
+        assert isinstance(self, df, y=None)
 
 
 
