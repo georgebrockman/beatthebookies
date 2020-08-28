@@ -132,7 +132,8 @@ class Trainer(object):
 
         feateng_blocks = [('diff', pipe_diff, ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
           'home_t_total_goals', 'home_t_total_shots','home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals',
-          'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against']) ]
+          'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'home_t_total_wins', 'home_t_total_losses',
+          'away_t_total_wins', 'away_t_total_losses']) ]
 
         features_encoder = ColumnTransformer(feateng_blocks, n_jobs=None, remainder="drop")
 
@@ -284,7 +285,7 @@ if __name__ == '__main__':
     #     'away_fouls',  'home_corn',  'away_corn',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
     #     'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     X = df[['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR','WHH', 'WHD', 'WHA', 'home_t_total_goals', 'home_t_total_shots',
-      'home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against']]
+      'home_t_total_goals_against', 'home_t_total_wins', 'home_t_total_losses', 'away_t_total_wins', 'away_t_total_losses', 'home_t_total_shots_against', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against']]
     y = df['FTR']
     y_mult = df[['home_w', 'draw', 'away_w']]
     t = Trainer(X=X, y=y, y_mult=y_mult, **params)
