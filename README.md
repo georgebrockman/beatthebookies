@@ -1,16 +1,18 @@
 # Data analysis
-- Document here the project: Beat the Bookies
-- Description: Taking a Machine Learning approach to build a model that can better predict the outcomes of Premier League football matches than an expert.
+Beat the Bookies
+Description:
+- Taking a Machine Learning approach to build a model that can better predict the outcomes of Premier League football matches than an expert.
 The model will be used to predict the outcomes of all matches in the 2019-2020 Premier League season (with the intention of being reproduced for future seasons).
 The intention is to place a ten pound stake on the team tipped to win each of the 380 matches in the Premier League season by the model, using William Hill betting odds,
 then comparing how much profit/loss the model's predictions returned by the end of the season against simple betting strategies such as picking the favourite, the underdog, the home team,
 away team or draw every time.
 
-- Data Source: https://www.football-data.co.uk
+Data Source:
+- https://www.football-data.co.uk - match statistics and WH betting odds.
+- https://www.fifaindex.com - fifa stats were scraped from here
 
-- Type of analysis:
-
-Investigative, using historical data to map future predictions.
+Type of analysis:
+- Investigative, using historical data to map future predictions.
 
 # Stratup the project
 

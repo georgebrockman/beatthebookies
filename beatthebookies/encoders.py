@@ -67,6 +67,18 @@ class FifaDifferentials2(BaseEstimator, TransformerMixin):
 
         return df
 
+class GoalDifferentials(BaseEstimator, TransformerMixin):
+
+    def __init__(self, df):
+        self.df = df
+
+    def fit(self, df, y=None):
+        return self
+
+    def transform(self, df, y=None):
+        assert isinstance(selfm df, y=None)
+
+
 
 
 

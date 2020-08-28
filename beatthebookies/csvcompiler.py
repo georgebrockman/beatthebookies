@@ -7,22 +7,7 @@
 
 # not accurate code yet
 
-# create a dictionary to map need all value pairs
-# team_dict = {'West Bromwich': 'West Brom', 'West Bromwich Albion': 'West Brom',
-#              'Arsenal FC': 'Arsenal', 'Chelsea FC':'Chelsea', 'Chelsea':'Chelsea',
-#              'Reading FC': 'Reading', 'Reading':'Reading', 'Arsenal':'Arsenal', 'Bournemouth':'Bournemouth',
-#              'AFC Bournemouth': 'Bournemouth', 'Sheffield United': 'Sheffield United',
-#              'Manchester United': 'Man United', 'Liverpool' : 'Liverpool', 'Newcastle United': 'Newcastle',
-#              'Middlesbrough':'Middlesbrough', 'Bolton Wanderers':'Bolton', 'Everton':'Everton',
-#              'Hull City': 'Hull', 'Sunderland': 'Sunderland', 'West Ham United': 'West Ham',
-#              'Aston Villa':'Aston Villa', 'Blackburn Rovers':'Blackburn', 'Fulham':'Fulham',
-#              'Stoke City':'Stoke', 'Tottenham Hotspur': 'Tottenham', 'Manchester City': 'Man City',
-#              'Wigan Athletic': 'Wigan', 'Portsmouth':'Portsmouth', 'Wolverhampton Wanderers':'Wolves',
-#              'Birmingham City': 'Birmingham', 'Burnley': 'Burnley', 'Blackpool':'Blackpool',
-#              'Queens Park Rangers': 'QPR', 'Swansea City':'Swansea', 'Norwich City': 'Norwich', 'Southampton':'Southampton',
-#              'Crystal Palace':'Crystal Palace', 'Cardiff City': 'Cardiff', 'Leicester City':'Leicester',
-#              'Watford':'Watford', 'Brighton & Hove Albion': 'Brighton', 'Huddersfield Town': 'Huddersfield'
-#             }
+
 
     # def csv_compile(*args):
     #     """ function takes in DataFrames, specifies the desired columns and concatonates into one DataFrame """
