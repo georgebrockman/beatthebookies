@@ -45,14 +45,26 @@ def simple_betting_profits(df, bet=10):
 def model_profits(df, bet=10):
     pass
 
-def compute_profit(df,y_pred,y_true,bet):
-    outcome1 = pd.np.multiply(df,y_true)
-    outcome = pd.np.multiply(outcome1,y_pred)
-    outcome['sum']= outcome.sum(axis=1)
-    outcome['profit']=-bet
-    outcome.loc[(outcome['sum']!= 0), 'profit'] = (outcome['sum']*bet)-bet
-    btb_profit_total = outcome['profit'].sum()
-    com_df = pd.concat([df,y_true], axis=1)
+def correct(x):
+    if x['pred'] == x['act']:
+        return abs(x['bet'] * x['odds']) + x['bet']
+    return x['bet']
+
+def compute_profit(df,y_pred,y_true,y_true_mult,bet):
+    odds = pd.np.multiply(df, y_true_mult)
+    odds['winning_odds'] = odds.sum(axis=1)
+    combined = pd.DataFrame({'pred': y_pred, 'act': y_true, 'odds': odds['winning_odds']})
+    combined['bet'] = -bet
+    combined['profit'] = combined.apply(lambda x: correct(x) , axis=1)
+    print(combined.head())
+    btb_profit_total = combined['profit'].sum()
+
+    # outcome = pd.np.multiply(outcome1,y_pred)
+    # outcome['sum']= outcome.sum(axis=1)
+    # outcome['profit']=-bet
+    # outcome.loc[(outcome['sum']!= 0), 'profit'] = (outcome['sum']*bet)-bet
+    # btb_profit_total = outcome['profit'].sum()
+    com_df = pd.concat([df,y_true_mult], axis=1)
     fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = simple_betting_profits(com_df)
     return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
 
