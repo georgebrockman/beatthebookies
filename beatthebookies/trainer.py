@@ -17,7 +17,7 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, R
 from xgboost import XGBRegressor
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 #from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 from tempfile import mkdtemp
@@ -39,20 +39,30 @@ class Trainer(object):
     ESTIMATOR = 'logistic'
     rs = RandomUnderSampler(random_state=0)
 
-    def __init__(self, X, y, **kwargs):
+    def __init__(self, X, y, y_mult, **kwargs):
         self.pipeline = None
         self.kwargs = kwargs
         self.split = self.kwargs.get("split", True)
         self.X = X
         self.y = y
+        self.y_mult = y_mult
+        self.y_type = self.kwargs.get('y_type', 'single')
+
+        if self.y_type == 'single':
+            self.le = LabelEncoder()
+            self.le.fit(self.y)
+            print(self.le.classes_)
+            self.y = self.le.transform(self.y)
+
+
         if self.split:
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y,
-                                                                                  test_size=0.3, random_state=15)
+            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
+            _, _, self.y_train_mult, self.y_test_mult = train_test_split(self.X, self.y_mult, test_size=0.3, random_state=15)
 
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
         self.model_params = None
 
-        self.balancing()
+        self.X_train, self.y_train = self.balancing()
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
@@ -209,7 +219,9 @@ class Trainer(object):
         self.mlflow_log_metric("support_away",scores[3][1])
         self.mlflow_log_metric("support_draw",scores[3][2])
 
-        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test[['WHH', 'WHA','WHD']],y_pred,self.y_test,bet)
+        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test[['WHH',
+                                            'WHA','WHD']],y_pred, self.y_test, self.y_test_mult,bet)
+
         self.mlflow_log_metric("profit_model",profit)
         self.mlflow_log_metric("prof_favorites",fav_profit_total)
         self.mlflow_log_metric("prof_underdogs", dog_profit_total)
@@ -249,15 +261,14 @@ if __name__ == '__main__':
     # seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
     #          '2013/2014', '2014/2015', '2015/2016']
     experiment = "BeatTheBookies"
-    params = dict(season='2015/2016',
-                  full=True,
-                  upload=True,
+    params = dict(upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   optimize=False,
-                  balance="SMOTE",
+                  y_type='single',
+                  balance="RandomUnderSampler",
                   bet = 10,
-                  estimator="RandomForestClassifier",
+                  estimator="logistic",
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
@@ -274,9 +285,9 @@ if __name__ == '__main__':
     #     'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
     X = df[['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR','WHH', 'WHD', 'WHA', 'home_t_total_goals', 'home_t_total_shots',
       'home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against']]
-    print(X.columns)
-    y = df[['home_w', 'away_w', 'draw']]
-    t = Trainer(X=X, y=y, **params)
+    y = df['FTR']
+    y_mult = df[['home_w', 'draw', 'away_w']]
+    t = Trainer(X=X, y=y, y_mult=y_mult, **params)
     t.train()
     t.evaluate()
 
