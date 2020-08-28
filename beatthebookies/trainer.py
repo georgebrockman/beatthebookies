@@ -2,7 +2,7 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-from beatthebookies.data import get_data, get_csv_data, get_betting_data, get_temp
+from beatthebookies.data import get_data, get_csv_data, get_betting_data, get_prem_league
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 # from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 
@@ -59,7 +59,7 @@ class Trainer(object):
         self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         if estimator == 'Logistic':
-            model = LogisticRegression(solver='lbfgs')
+            model = LogisticRegression()
         elif estimator == 'Linear':
             model = LinearRegression()
         elif estimator == 'RandomForestClassifier':
@@ -256,16 +256,16 @@ if __name__ == '__main__':
                   feateng=None,
                   n_jobs=-1)
     # df = get_csv_data(**params)
-    df = get_temp()
+    df = get_prem_league()
     # betting_data = get_betting_data(**params)
     df.dropna(inplace=True)
     print(df.shape)
     X = df.drop(columns=['season', 'date', 'stage', 'FTR', 'HTHG', 'HTAG', 'HTR',
         'home_shots',  'away_shots', 'home_shots_ot', 'away_shots_ot', 'home_fouls',
-        'away_fouls',  'home_cards',  'away_cards',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
+        'away_fouls',  'home_corn',  'away_corn',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
         'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
-    #y = df[['home_w', 'away_w', 'draw']]
-    y = df['FTR']
+    print(X.columns)
+    y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
     t.evaluate()

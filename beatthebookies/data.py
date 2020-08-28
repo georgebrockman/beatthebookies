@@ -40,19 +40,25 @@ def get_rankings(df):
 
 def get_opp_totals(df):
 
-    def opposite_stat(x, team='away_team', stat='home_team_goal', add='home_t_home_goals'):
+    def opposite_stat(x, team='away_team', stat='home_team_goal', add='away_t_away_goals'):
         if x['stage'] == 1:
             return 0
         opp_team = 'away_team' if team == 'home_team' else 'home_team'
-        opp_stat = df[(df['stage'] < x['stage']) & (df[opp_team] == x[team])]\
-            .groupby(['season', opp_team])[stat].sum() + x[add]
+        opp_stat = df[(df['season'] == x['season']) & (df['date'] < x['date']) & (df[opp_team] == x[team])]\
+            .groupby(opp_team)[stat].sum() + x[add]
         if len(opp_stat) > 0:
             return opp_stat[0]
         return 0
 
-    assign_zero = ['home_t_total_goals', 'home_t_total_goals_against','home_t_total_wins', 'home_t_total_losses',
-                  'home_t_total_draws','away_t_total_goals','away_t_total_goals_against', 'away_t_total_wins', 'away_t_total_losses',
-                  'away_t_total_draws']
+
+    assign_zero = ['home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_against',
+                    'home_t_total_shots_ot', 'home_t_total_shots_ot_against', 'home_t_total_fouls', 'home_t_total_fouls_against',
+                    'home_t_total_corn','home_t_total_corn_against', 'home_t_total_yel', 'home_t_total_yel_against', 'home_t_total_red',
+                    'home_t_total_red_against', 'home_t_total_wins', 'home_t_total_losses','home_t_total_draws','away_t_total_goals',
+                    'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'away_t_total_shots_ot',
+                    'away_t_total_shots_ot_against', 'away_t_total_fouls', 'away_t_total_fouls_against','away_t_total_corn',
+                    'away_t_total_corn_against', 'away_t_total_yel', 'away_t_total_yel_against', 'away_t_total_red','away_t_total_red_against',
+                     'away_t_total_wins', 'away_t_total_losses','away_t_total_draws']
 
     for col in assign_zero:
         df[col] = 0
@@ -60,36 +66,87 @@ def get_opp_totals(df):
     # home team opposite stats
     df['home_t_total_goals'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_team_goal', add='home_t_home_goals' ), axis=1)
     df['home_t_total_goals_against'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_team_goal', add='home_t_home_goals_against' ), axis=1)
+    df['home_t_total_shots' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_shots', add='home_t_home_shots'), axis=1)
+    df['home_t_total_shots_against'] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_shots', add='home_t_home_shots_against'), axis=1)
+    df['home_t_total_shots_ot' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_shots_ot', add='home_t_home_shots_ot'), axis=1)
+    df['home_t_total_shots_ot_against' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_shots_ot', add='home_t_home_shots_ot_against'), axis=1)
+    df['home_t_total_fouls' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_fouls', add='home_t_home_fouls'), axis=1)
+    df['home_t_total_fouls_against'] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_fouls', add='home_t_home_fouls_against'), axis=1)
+    df['home_t_total_corn'] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_corn', add='home_t_home_corn'), axis=1)
+    df['home_t_total_corn_against' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_corn', add='home_t_home_corn_against'), axis=1)
+    df['home_t_total_yel' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_yel', add='home_t_home_yel'), axis=1)
+    df['home_t_total_yel_against' ] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_yel', add='home_t_home_yel_against'), axis=1)
+    df['home_t_total_red'] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='away_red', add='home_t_home_red'), axis=1)
+    df['home_t_total_red_against'] = df.apply(lambda x: opposite_stat(x, team='home_team', stat='home_red', add='home_t_home_red_against'), axis=1)
+
     df['home_t_total_wins'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='away_w', add='home_t_home_wins' ), axis=1)
     df['home_t_total_losses'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='home_w', add='home_t_home_losses' ), axis=1)
     df['home_t_total_draws'] = df.apply(lambda x: opposite_stat( x, team='home_team', stat='draw', add='home_t_home_draws'), axis=1)
-    # away team opposite stats
+    # # away team opposite stats
     df['away_t_total_goals'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_team_goal', add='away_t_away_goals' ), axis=1)
     df['away_t_total_goals_against'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_team_goal', add='away_t_away_goals_against' ), axis=1)
+    df['away_t_total_shots' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_shots', add='away_t_away_shots'), axis=1)
+    df['away_t_total_shots_against'] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_shots', add='away_t_away_shots_against'), axis=1)
+    df['away_t_total_shots_ot' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_shots_ot', add='away_t_away_shots_ot'), axis=1)
+    df['away_t_total_shots_ot_against' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_shots_ot', add='away_t_away_shots_ot_against'), axis=1)
+    df['away_t_total_fouls' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_fouls', add='away_t_away_fouls'), axis=1)
+    df['away_t_total_fouls_against'] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_fouls', add='away_t_away_fouls_against'), axis=1)
+    df['away_t_total_corn'] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_corn', add='away_t_away_corn'), axis=1)
+    df['away_t_total_corn_against' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_corn', add='away_t_away_corn_against'), axis=1)
+    df['away_t_total_yel' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_yel', add='away_t_away_yel'), axis=1)
+    df['away_t_total_yel_against' ] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_yel', add='away_t_away_yel_against'), axis=1)
+    df['away_t_total_red'] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='home_red', add='away_t_away_red'), axis=1)
+    df['away_t_total_red_against'] = df.apply(lambda x: opposite_stat(x, team='away_team', stat='away_red', add='away_t_away_red_against'), axis=1)
+
     df['away_t_total_wins'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='home_w', add='away_t_away_wins'), axis=1)
     df['away_t_total_losses'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='away_w', add='away_t_away_losses'), axis=1)
     df['away_t_total_draws'] = df.apply(lambda x: opposite_stat( x, team='away_team', stat='draw', add='away_t_away_draws'), axis=1)
 
     return df
 
-
 def get_loc_totals(df):
+    # home team goals
     df['home_t_home_goals'] = df.groupby(['season','home_team'])['home_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['home_t_home_goals_against'] = df.groupby(['season','home_team'])['away_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
-    # home team win stats
+    # # home team shots
+    df['home_t_home_shots'] = df.groupby(['season','home_team'])['home_shots'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_shots_ot'] = df.groupby(['season','home_team'])['home_shots_ot'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_shots_against'] = df.groupby(['season','home_team'])['away_shots'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_shots_ot_against'] = df.groupby(['season','home_team'])['away_shots_ot'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    # # home fouls
+    df['home_t_home_fouls'] = df.groupby(['season','home_team'])['home_fouls'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_fouls_against'] = df.groupby(['season','home_team'])['away_fouls'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_corn'] = df.groupby(['season','home_team'])['home_corn'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_corn_against'] = df.groupby(['season','home_team'])['away_corn'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_yel'] = df.groupby(['season','home_team'])['home_yel'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_yel_against'] = df.groupby(['season','home_team'])['away_yel'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_red'] = df.groupby(['season','home_team'])['home_red'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['home_t_home_red_against'] = df.groupby(['season','home_team'])['away_red'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    # # home team win stats
     df['home_t_home_wins'] = df.groupby(['season','home_team'])['home_w'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['home_t_home_losses'] = df.groupby(['season','home_team'])['away_w'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['home_t_home_draws'] = df.groupby(['season','home_team'])['draw'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     # away team goal stats
     df['away_t_away_goals'] = df.groupby(['season','away_team'])['away_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['away_t_away_goals_against'] = df.groupby(['season','away_team'])['home_team_goal'].apply(lambda x  : x.cumsum().shift(fill_value=0))
-    # away team win stats
+    # # away team shots
+    df['away_t_away_shots'] = df.groupby(['season','away_team'])['away_shots'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_shots_ot'] = df.groupby(['season','away_team'])['away_shots_ot'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_shots_against'] = df.groupby(['season','away_team'])['home_shots'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_shots_ot_against'] = df.groupby(['season','away_team'])['home_shots_ot'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    # # away fouls
+    df['away_t_away_fouls'] = df.groupby(['season','away_team'])['away_fouls'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_fouls_against'] = df.groupby(['season','away_team'])['home_fouls'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_corn'] = df.groupby(['season','away_team'])['away_corn'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_corn_against'] = df.groupby(['season','away_team'])['home_corn'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_yel'] = df.groupby(['season','away_team'])['away_yel'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_yel_against'] = df.groupby(['season','away_team'])['home_yel'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_red'] = df.groupby(['season','away_team'])['away_red'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    df['away_t_away_red_against'] = df.groupby(['season','away_team'])['home_red'].apply(lambda x  : x.cumsum().shift(fill_value=0))
+    # # away team win stats
     df['away_t_away_wins'] = df.groupby(['season','away_team'])['away_w'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['away_t_away_losses'] = df.groupby(['season','away_team'])['home_w'].apply(lambda x  : x.cumsum().shift(fill_value=0))
     df['away_t_away_draws'] = df.groupby(['season','away_team'])['draw'].apply(lambda x  : x.cumsum().shift(fill_value=0))
-
-
-
 
 
     return df
@@ -163,14 +220,15 @@ def get_data(season='2015/2016', league=1729, full=False, local=False, optimize=
 def get_csv_data(season='2015/2016', league=1729, full=False, local=False, optimize=False, **kwargs):
     root_dir = os.path.dirname(os.path.dirname(__file__))
     csv_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
-    file = csv_path + 'data.csv'
+    file = csv_path + 'newdata.csv'
     df = pd.read_csv(file)
     df.drop(columns='Unnamed: 0', inplace=True)
     df.rename(columns={'Date': 'date', 'Season': 'season','HomeTeam': 'home_team', 'AwayTeam': 'away_team', 'FTHG': 'home_team_goal', 'FTAG': 'away_team_goal',
-                        'HS': 'home_shots', 'HST': 'home_shots_targ', 'AS': 'away_shots', 'AST': 'away_shots_targ',
+                        'HS': 'home_shots', 'HST': 'home_shots_ot', 'HC': 'home_corn', 'AC': 'away_corn', 'AS': 'away_shots', 'AST': 'away_shots_ot',
                         'HF': 'home_fouls', 'AF': 'away_fouls', 'HY': 'home_yel', 'AY': 'away_yel', 'HR': 'home_red', 'AR': 'away_red'}, inplace=True)
     df['date'] = pd.to_datetime(df['date'], dayfirst=True)
     df.sort_values('date', inplace=True)
+    df.reset_index(drop=True, inplace=True)
     # number of weeks in the season
     lst = range(1,39)
     # number of games in a week
@@ -185,10 +243,10 @@ def get_csv_data(season='2015/2016', league=1729, full=False, local=False, optim
 
     return df
 
-def get_temp():
+def get_prem_league():
     root_dir = os.path.dirname(os.path.dirname(__file__))
     csv_path = os.path.join(root_dir, 'beatthebookies/', 'data/')
-    file = csv_path + 'tempfile.csv'
+    file = csv_path + 'premiertotals.csv'
     df = pd.read_csv(file)
 
     return df
