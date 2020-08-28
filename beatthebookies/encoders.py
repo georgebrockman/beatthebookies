@@ -30,16 +30,16 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 class FifaDifferentials(BaseEstimator, TransformerMixin):
 
-    def __init__(self, H_ATT, H_MID. H_DEF, H_OVR):
-        self.H_ATT = H_ATT
-        self.H_MID = H_MID
-        self.H_DEF = H_DEF
-        self.H_OVR = H_OVR
+    def __init__(self):
+        self.H_ATT = "H_ATT"
+        self.H_MID = "H_MID"
+        self.H_DEF = "H_DEF"
+        self.H_OVR = "H_OVR"
 
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X, y=None)
+    def transform(self, X, y=None):
         assert isinstance(X, pd.DataFrame)
         # home team differentials
         X['H_ATT_D'] = X['H_ATT'] - X['A_ATT']
@@ -47,25 +47,30 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
         X['H_DEF_D'] = X['H_DEF'] - X['A_DEF']
         X['H_OVR_D'] = X['H_OVR'] - X['A_OVR']
 
-        return X
+        X['H_G_D'] = X['home_t_total_goals'] - X['away_t_total_goals']
+        X['H_GA_D'] = X['home_t_total_goals_against'] - X['away_t_total_goals_against']
+        X['H_S_D'] = X['home_t_total_shots'] - X['away_t_total_shots']
+        X['H_SA_D'] = X['home_t_total_shots_against'] - X['away_t_total_shots_against']
 
-class FifaDifferentials2(BaseEstimator, TransformerMixin):
+        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_G_D', 'H_GA_D', 'H_S_D', 'H_SA_D']]
 
-    def __init__(self, df):
-        self.df = df
+# class FifaDifferentials2(BaseEstimator, TransformerMixin):
 
-    def fit(self, df, y=None):
-        return self
+#     def __init__(self, df):
+#         self.df = df
 
-    def transform(self, df, y=None)
-        assert isinstance(df, pd.DataFrame)
-        # home team differentials
-        df['H_ATT_D'] = df['H_ATT'] - df['A_ATT']
-        df['H_MID_D'] = df['H_MID'] - df['A_MID']
-        df['H_DEF_D'] = df['H_DEF'] - df['A_DEF']
-        df['H_OVR_D'] = df['H_OVR'] - df['A_OVR']
+#     def fit(self, df, y=None):
+#         return self
 
-        return df
+#     def transform(self, df, y=None):
+#         assert isinstance(df, pd.DataFrame)
+#         # home team differentials
+#         df['H_ATT_D'] = df['H_ATT'] - df['A_ATT']
+#         df['H_MID_D'] = df['H_MID'] - df['A_MID']
+#         df['H_DEF_D'] = df['H_DEF'] - df['A_DEF']
+#         df['H_OVR_D'] = df['H_OVR'] - df['A_OVR']
+
+#         return df
 
 
 
