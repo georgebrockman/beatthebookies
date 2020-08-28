@@ -22,6 +22,9 @@ from sklearn.compose import ColumnTransformer
 #from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 from tempfile import mkdtemp
 from beatthebookies.bettingstrategy import compute_profit
+from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
+from collections import Counter
+from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -34,6 +37,7 @@ EXPERIMENT_NAME = f"[UK][London][{myname}] BeatTheBookies"
 class Trainer(object):
 
     ESTIMATOR = 'logistic'
+    rs = RandomUnderSampler(random_state=0)
 
     def __init__(self, X, y, **kwargs):
         self.pipeline = None
@@ -44,9 +48,11 @@ class Trainer(object):
         if self.split:
             self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y,
                                                                                   test_size=0.3, random_state=15)
+
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
         self.model_params = None
 
+        self.balancing()
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
@@ -118,6 +124,47 @@ class Trainer(object):
           ('rgs', self.get_estimator())])
 
 
+    def balancing(self):
+        ### OVERSAMPLERS
+        balance = self.kwargs.get("balance", "SMOTE")
+        if balance == "SMOTE":
+          # Create new samples without making any disticntion between easy and hard samples to be classified using K-nearest neighbor
+          X_train, y_train = SMOTE().fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+        elif balance == "ADASYN":
+          # Create new samples next to the original samples which are wrongly classified by using K-Nearest neighbor
+          X_train, y_train = ADASYN().fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+        elif balance == "RandomOversampler":
+          # Duplicating some of the original samples of the minority class
+          X_train, y_train = RandomOverSampler(random_state=0).fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+
+       ### UNDERSAMPLERS
+        if balance == "RandomUnderSampler":
+          # balances the data by randomly selecting a subset of data for the targeted classes
+          X_train, y_train = RandomUnderSampler(random_state=0).fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+        if balance == "CLusterCentroids":
+          # Selects samples based on k-nearest neighbor
+          X_train, y_train = ClusterCentroids(random_state=0).fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+        if balance == "NearMiss":
+          # Allows to select 3 different rules of selecting samples based on k-neearest neighbors (version 1,2,3)
+          X_train, y_train = NearMiss(version=1).fit_resample(self.X_train, self.y_train)
+          print(Counter(y_train))
+          return X_train, y_train
+        else:
+          return X_train, y_train
+
+        #x_resampled? y_resampled?
+
+
     @simple_time_tracker
     def train(self):
         tic = time.time()
@@ -126,7 +173,8 @@ class Trainer(object):
         self.pipeline.fit(self.X_train.drop(columns=['WHH', 'WHD', 'WHA']), self.y_train)
 
 
-    def evaluate(self,bet):
+    def evaluate(self):
+        bet = self.bet = self.kwargs.get("bet", 10)
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
         y_pred = self.pipeline.predict(self.X_test.drop(columns=['WHH', 'WHD', 'WHA']))
@@ -199,7 +247,9 @@ if __name__ == '__main__':
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   optimize=False,
-                  estimator="KNNClassifier",
+                  balance="SMOTE",
+                  bet = 10,
+                  estimator="RandomForestClassifier",
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
@@ -208,7 +258,6 @@ if __name__ == '__main__':
     # df = get_csv_data(**params)
     df = get_prem_league()
     # betting_data = get_betting_data(**params)
-    bet = 10
     df.dropna(inplace=True)
     print(df.shape)
     X = df.drop(columns=['season', 'date', 'stage', 'FTR', 'HTHG', 'HTAG', 'HTR',
@@ -219,5 +268,5 @@ if __name__ == '__main__':
     y = df[['home_w', 'away_w', 'draw']]
     t = Trainer(X=X, y=y, **params)
     t.train()
-    t.evaluate(bet)
+    t.evaluate()
 
