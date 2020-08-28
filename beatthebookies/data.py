@@ -8,9 +8,6 @@ from beatthebookies.utils import simple_time_tracker
 
 
 
-
-
-
 def get_rankings(df):
 
     root_dir = os.path.dirname(os.path.dirname(__file__))
