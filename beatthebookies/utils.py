@@ -11,6 +11,7 @@ def compute_overall_scores(y_pred,y_true):
     rec = recall_score(y_true,y_pred, average='weighted')
     f1 = f1_score(y_true,y_pred, average='weighted')
     scores =  [acc,pre,rec,f1]
+    print(acc)
     return scores
 
 def compute_scores(y_pred,y_true):

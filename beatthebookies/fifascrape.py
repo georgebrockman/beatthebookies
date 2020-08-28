@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 
 
-
 def scrape():
     url = f"https://www.fifaindex.com/teams/fifa05/?league=13&order=desc"
     while(True):
@@ -30,7 +29,7 @@ def scrape():
     df = pd.DataFrame(data, columns=['Team', 'League', 'ATT', 'MID', 'DEF', 'OVR'])
     df['season'] = '2004/2005'
 
-    seasons = ['06','07','08','09','10','11','12','13','14','15','16','17','18','19','20']
+    seasons = ['06','07','08','09','10','11','12_8','13_11','14_12','15_16','16_19','17_74','18_174','19_279','20_354']
 
     for year in seasons:
         url = f"https://www.fifaindex.com/teams/fifa{year}/?league=13&order=desc"
@@ -55,6 +54,7 @@ def scrape():
             if len(row) > 7:
                 data.append(row[1:-1])
 
+        year = year[:2]
         new_df = pd.DataFrame(data, columns=['Team', 'League', 'ATT', 'MID', 'DEF', 'OVR'])
         new_df['season'] = f'20{str(int(year)-1).zfill(2)}/20{year}'
         df = pd.concat([df, new_df], axis=0)
