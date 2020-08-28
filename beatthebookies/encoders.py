@@ -74,16 +74,37 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
 
 #         return df
 
-class GoalDifferentials(BaseEstimator, TransformerMixin):
+# class GoalDifferentials(BaseEstimator, TransformerMixin):
 
-    def __init__(self, df):
-        self.df = df
+#     def __init__(self, df):
+#         self.df = df
 
-    def fit(self, df, y=None):
+#     def fit(self, df, y=None):
+#         return self
+
+#     def transform(self, df, y=None):
+#         assert isinstance(selfm df, y=None)
+
+
+class WeeklyGoalAverages(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        self.home_t_total_goals = 'home_t_total_goals'
+        self.away_t_total_goals = 'away_t_total_goals'
+        self.prev_home_matches = 'prev_home_matches'
+        self.prev_away_matches = 'prev_away_matches'
+
+    def fit(self, X, y=None):
         return self
+      
+    def transform(self, X, y=None):
+        assert isinstance(X, pd.DataFrame)
+        X['average_home_t_goals'] = X['home_t_total_goals'] / X['prev_home_matches']
+        X['average_away_t_goals'] = X['away_t_total_goals'] / X['prev_away_matches']
+        # dividing by zero returns infinite and NaN values
+        X.replace([np.inf, np.nan], 0, inplace=True)
 
-    def transform(self, df, y=None):
-        assert isinstance(self, df, y=None)
+        return X[['average_home_t_goals','average_away_t_goals']]
 
 
 
