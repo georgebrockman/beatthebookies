@@ -188,6 +188,13 @@ def get_winner(df):
 
     return df
 
+def get_winning_odds(df):
+    odds = pd.np.multiply(df[['WHH', 'WHD', 'WHA']], df[['home_w', 'draw', 'away_w']])
+    odds['winning_odds'] = odds.sum(axis=1)
+    df['winning_odds'] = odds['winning_odds']
+    return df
+
+
 
 
 @simple_time_tracker
@@ -205,6 +212,7 @@ def get_csv_data():
     df.sort_values('date', inplace=True)
     df.reset_index(drop=True, inplace=True)
     df = get_winner(df)
+    df = get_winning_odds(df)
     df = get_loc_totals(df)
     df = get_opp_totals(df)
 

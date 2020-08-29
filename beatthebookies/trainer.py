@@ -2,9 +2,9 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-from beatthebookies.data import get_prem_league
+from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
-from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages
+from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages
 
 
 from mlflow.tracking import MlflowClient
@@ -19,7 +19,6 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
-#from beatthebookies.encoders import CustomNormaliser, CustomStandardScaler
 from tempfile import mkdtemp
 from beatthebookies.bettingstrategy import compute_profit
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
@@ -39,13 +38,12 @@ class Trainer(object):
     ESTIMATOR = 'logistic'
     rs = RandomUnderSampler(random_state=0)
 
-    def __init__(self, X, y, y_mult, **kwargs):
+    def __init__(self, X, y, **kwargs):
         self.pipeline = None
         self.kwargs = kwargs
         self.split = self.kwargs.get("split", True)
         self.X = X
         self.y = y
-        self.y_mult = y_mult
         self.y_type = self.kwargs.get('y_type', 'single')
 
         if self.y_type == 'single':
@@ -56,8 +54,7 @@ class Trainer(object):
 
 
         if self.split:
-            self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
-            _, _, self.y_train_mult, self.y_test_mult = train_test_split(self.X, self.y_mult, test_size=0.3, random_state=15)
+            self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
 
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
         self.model_params = None
@@ -66,7 +63,7 @@ class Trainer(object):
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
-        self.mlflow_log_param("model", estimator)
+        # self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         if estimator == 'Logistic':
             model = LogisticRegression()
@@ -96,7 +93,7 @@ class Trainer(object):
         else:
             model = LogisticRegression()
         estimator_params = self.kwargs.get("estimator_params", {})
-        self.mlflow_log_param("estimator", estimator)
+        # self.mlflow_log_param("estimator", estimator)
         model.set_params(**estimator_params)
         return model
 
@@ -133,10 +130,14 @@ class Trainer(object):
           # 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'home_t_total_wins', 'home_t_total_losses',
           # 'away_t_total_wins', 'away_t_total_losses'
         pipe_fifadiff = make_pipeline(FifaDifferentials(), RobustScaler())
-        pipe_avggoal = make_pipeline(WeeklyGoalAverages())
+        pipe_winpct = make_pipeline(WinPctDifferentials(), StandardScaler())
+        pipe_avggoal = make_pipeline(WeeklyGoalAverages(), StandardScaler())
+        pipe_avggoal_ag = make_pipeline(WeeklyGoalAgAverages(), StandardScaler())
 
         feateng_blocks = [('fifadiff', pipe_fifadiff, ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR']),
-                          ('goaldiff', pipe_avggoal, ['home_t_total_goals','away_t_total_goals', 'stage'])
+                          ('windiff', pipe_winpct, ['home_t_total_wins','away_t_total_wins', 'stage']),
+                          ('goaldiff', pipe_avggoal, ['home_t_total_goals','away_t_total_goals', 'stage']),
+                          ('goalagdiff', pipe_avggoal_ag, ['home_t_total_goals_against','away_t_total_goals_against', 'stage'])
                          ]
 
         features_encoder = ColumnTransformer(feateng_blocks, n_jobs=None, remainder="drop")
@@ -185,85 +186,83 @@ class Trainer(object):
         else:
           return X_train, y_train
 
-        #x_resampled? y_resampled?
+
 
 
     @simple_time_tracker
     def train(self):
         tic = time.time()
         self.set_pipeline()
-        self.pipeline.fit(self.X_train.drop(columns=['WHH', 'WHD', 'WHA']), self.y_train)
+        self.pipeline.fit(self.X_train, self.y_train)
 
 
     def evaluate(self):
         bet = self.bet = self.kwargs.get("bet", 10)
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
-        y_pred = self.pipeline.predict(self.X_test.drop(columns=['WHH', 'WHD', 'WHA']))
-        overall_scores = compute_overall_scores(y_pred,self.y_test)
-        scores = compute_scores(y_pred,self.y_test)
-        self.mlflow_log_metric("accuracy",overall_scores[0])
+        y_pred = self.pipeline.predict(self.X_val)
+        overall_scores = compute_overall_scores(y_pred,self.y_val)
+        scores = compute_scores(y_pred,self.y_val)
+        # self.mlflow_log_metric("accuracy",overall_scores[0])
 
-        self.mlflow_log_metric("precision",overall_scores[1])
-        self.mlflow_log_metric("precision_home",scores[0][0])
-        self.mlflow_log_metric("precision_away",scores[0][1])
-        self.mlflow_log_metric("precision_draw",scores[0][2])
+        # self.mlflow_log_metric("precision",overall_scores[1])
+        # self.mlflow_log_metric("precision_home",scores[0][0])
+        # self.mlflow_log_metric("precision_away",scores[0][1])
+        # self.mlflow_log_metric("precision_draw",scores[0][2])
 
-        self.mlflow_log_metric("recall",overall_scores[2])
-        self.mlflow_log_metric("recall_home",scores[1][0])
-        self.mlflow_log_metric("recall_away",scores[1][1])
-        self.mlflow_log_metric("recall_draw",scores[1][2])
+        # self.mlflow_log_metric("recall",overall_scores[2])
+        # self.mlflow_log_metric("recall_home",scores[1][0])
+        # self.mlflow_log_metric("recall_away",scores[1][1])
+        # self.mlflow_log_metric("recall_draw",scores[1][2])
 
-        self.mlflow_log_metric("f1",overall_scores[3])
-        self.mlflow_log_metric("f1_home",scores[2][0])
-        self.mlflow_log_metric("f1_away",scores[2][1])
-        self.mlflow_log_metric("f1_draw",scores[2][2])
+        # self.mlflow_log_metric("f1",overall_scores[3])
+        # self.mlflow_log_metric("f1_home",scores[2][0])
+        # self.mlflow_log_metric("f1_away",scores[2][1])
+        # self.mlflow_log_metric("f1_draw",scores[2][2])
 
-        self.mlflow_log_metric("support_home",scores[3][0])
-        self.mlflow_log_metric("support_away",scores[3][1])
-        self.mlflow_log_metric("support_draw",scores[3][2])
+        # self.mlflow_log_metric("support_home",scores[3][0])
+        # self.mlflow_log_metric("support_away",scores[3][1])
+        # self.mlflow_log_metric("support_draw",scores[3][2])
 
-        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test[['WHH',
-                                            'WHA','WHD']],y_pred, self.y_test, self.y_test_mult,bet)
+        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_val, y_pred, self.y_val, bet)
 
-        self.mlflow_log_metric("profit_model",profit)
-        self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        self.mlflow_log_metric("prof_underdogs", dog_profit_total)
-        self.mlflow_log_metric("prof_home", home_profit_total)
-        self.mlflow_log_metric("prof_draw", draw_profit_total)
-        self.mlflow_log_metric("prof_away", away_profit_total)
+        # self.mlflow_log_metric("profit_model",profit)
+        # self.mlflow_log_metric("prof_favorites",fav_profit_total)
+        # self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        # self.mlflow_log_metric("prof_home", home_profit_total)
+        # self.mlflow_log_metric("prof_draw", draw_profit_total)
+        # self.mlflow_log_metric("prof_away", away_profit_total)
 
         return scores
 
 
-    @memoized_property
-    def mlflow_client(self):
-        mlflow.set_tracking_uri(MLFLOW_URI)
-        return MlflowClient()
+    # @memoized_property
+    # def mlflow_client(self):
+    #     mlflow.set_tracking_uri(MLFLOW_URI)
+    #     return MlflowClient()
 
-    @memoized_property
-    def mlflow_experiment_id(self):
-        try:
-            return self.mlflow_client.create_experiment(self.experiment_name)
-        except BaseException:
-            return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
+    # @memoized_property
+    # def mlflow_experiment_id(self):
+    #     try:
+    #         return self.mlflow_client.create_experiment(self.experiment_name)
+    #     except BaseException:
+    #         return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
 
-    @memoized_property
-    def mlflow_run(self):
-        return self.mlflow_client.create_run(self.mlflow_experiment_id)
+    # @memoized_property
+    # def mlflow_run(self):
+    #     return self.mlflow_client.create_run(self.mlflow_experiment_id)
 
-    def mlflow_log_param(self, key, value):
-        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+    # def mlflow_log_param(self, key, value):
+    #     self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
 
-    def mlflow_log_metric(self, key, value):
-        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+    # def mlflow_log_metric(self, key, value):
+    #     self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
 
 
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    # seasons = ['2009/2010', '2010/2011', '2011/2012', '2012/2013',
-    #          '2013/2014', '2014/2015', '2015/2016']
+
     experiment = "BeatTheBookies"
     params = dict(upload=True,
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
@@ -278,20 +277,11 @@ if __name__ == '__main__':
                   pipeline_memory=None,
                   feateng=None,
                   n_jobs=-1)
-    # df = get_csv_data(**params)
-    df = get_prem_league()
-    # betting_data = get_betting_data(**params)
-    df.dropna(inplace=True)
+    df, test_df = get_data(test_season='2019/2020')
     print(df.shape)
-    # X = df.drop(columns=['season', 'date', 'stage', 'FTR', 'HTHG', 'HTAG', 'HTR',
-    #     'home_shots',  'away_shots', 'home_shots_ot', 'away_shots_ot', 'home_fouls',
-    #     'away_fouls',  'home_corn',  'away_corn',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
-    #     'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
-    X = df[['stage','H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR','WHH', 'WHD', 'WHA',
-            'home_t_total_goals', 'away_t_total_goals']]
+    X = df.drop(columns=['FTR'])
     y = df['FTR']
-    y_mult = df[['home_w', 'draw', 'away_w']]
-    t = Trainer(X=X, y=y, y_mult=y_mult, **params)
+    t = Trainer(X=X, y=y, **params)
     t.train()
     t.evaluate()
 
