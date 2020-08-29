@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import sqlite3
 
-from beatthebookies.data import get_betting_data
 
 def simple_betting_profits(df, bet=10):
     """
@@ -58,6 +57,7 @@ def compute_profit(df,y_pred,y_true,y_true_mult,bet):
     combined['profit'] = combined.apply(lambda x: correct(x) , axis=1)
     print(combined.head())
     btb_profit_total = combined['profit'].sum()
+    print(btb_profit_total)
 
     # outcome = pd.np.multiply(outcome1,y_pred)
     # outcome['sum']= outcome.sum(axis=1)
