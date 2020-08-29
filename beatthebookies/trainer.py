@@ -2,9 +2,9 @@ import mlflow
 import warnings
 import time
 import pandas as pd
-from beatthebookies.data import get_data, get_csv_data, get_betting_data, get_prem_league
+from beatthebookies.data import get_prem_league
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
-from beatthebookies.encoders import FifaDifferentials
+from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages
 
 
 from mlflow.tracking import MlflowClient
@@ -128,12 +128,16 @@ class Trainer(object):
        #      if bloc[0] not in feateng_steps:
        #          feateng_blocks.remove(bloc)
         # pipe_scale = ColumnTransformer(StandardScaler())
-        pipe_diff = make_pipeline(FifaDifferentials(), RobustScaler())
 
-        feateng_blocks = [('diff', pipe_diff, ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
-          'home_t_total_goals', 'home_t_total_shots','home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals',
-          'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'home_t_total_wins', 'home_t_total_losses',
-          'away_t_total_wins', 'away_t_total_losses']) ]
+          # 'home_t_total_goals', 'home_t_total_shots','home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals',
+          # 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'home_t_total_wins', 'home_t_total_losses',
+          # 'away_t_total_wins', 'away_t_total_losses'
+        pipe_fifadiff = make_pipeline(FifaDifferentials(), RobustScaler())
+        pipe_avggoal = make_pipeline(WeeklyGoalAverages())
+
+        feateng_blocks = [('fifadiff', pipe_fifadiff, ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR']),
+                          ('goaldiff', pipe_avggoal, ['home_t_total_goals','away_t_total_goals', 'stage'])
+                         ]
 
         features_encoder = ColumnTransformer(feateng_blocks, n_jobs=None, remainder="drop")
 
@@ -188,7 +192,6 @@ class Trainer(object):
     def train(self):
         tic = time.time()
         self.set_pipeline()
-        #x_train.drop(columns=['WHH', 'WHD', 'WHA'])
         self.pipeline.fit(self.X_train.drop(columns=['WHH', 'WHD', 'WHA']), self.y_train)
 
 
@@ -284,8 +287,8 @@ if __name__ == '__main__':
     #     'home_shots',  'away_shots', 'home_shots_ot', 'away_shots_ot', 'home_fouls',
     #     'away_fouls',  'home_corn',  'away_corn',  'home_yel',  'away_yel',  'home_red',  'away_red', 'Referee',
     #     'home_team_goal', 'away_team_goal', 'home_team', 'away_team', 'home_w', 'away_w', 'draw'])
-    X = df[['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR','WHH', 'WHD', 'WHA', 'home_t_total_goals', 'home_t_total_shots',
-      'home_t_total_goals_against', 'home_t_total_wins', 'home_t_total_losses', 'away_t_total_wins', 'away_t_total_losses', 'home_t_total_shots_against', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against']]
+    X = df[['stage','H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR','WHH', 'WHD', 'WHA',
+            'home_t_total_goals', 'away_t_total_goals']]
     y = df['FTR']
     y_mult = df[['home_w', 'draw', 'away_w']]
     t = Trainer(X=X, y=y, y_mult=y_mult, **params)

@@ -2,31 +2,6 @@ import pandas as pd
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
-# class CustomStandardScaler(BaseEstimator, TransformerMixin):
-
-#     def __init__(self):
-#         self.mean = None
-#         self.std = None
-
-#     def fit(self, X):
-#         self.mean = np.nanmean(X, axis=0)
-#         self.std = np.nanstd(X, axis=0)
-
-#     def transform(self, X):
-#         return (X - self.mean) / self.std
-
-# class CustomNormaliser(BaseEstimator, TransformerMixin):
-
-#     def __init__(self):
-#         self.min = None
-#         self.max = None
-
-#     def fit(self, X):
-#         self.min = np.nanmin(X, axis=0)
-#         self.max = np.nanmax(X, axis=0)
-
-#     def transform(self, X):
-#         return (X - self.min) / (self.max - self.min)
 
 class FifaDifferentials(BaseEstimator, TransformerMixin):
 
@@ -47,14 +22,15 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
         X['H_DEF_D'] = X['H_DEF'] - X['A_DEF']
         X['H_OVR_D'] = X['H_OVR'] - X['A_OVR']
 
-        X['H_G_D'] = X['home_t_total_goals'] - X['away_t_total_goals']
-        X['H_GA_D'] = X['home_t_total_goals_against'] - X['away_t_total_goals_against']
-        X['H_S_D'] = X['home_t_total_shots'] - X['away_t_total_shots']
-        X['H_SA_D'] = X['home_t_total_shots_against'] - X['away_t_total_shots_against']
-        X['H_W_D'] = X['home_t_total_wins'] - X['away_t_total_wins']
-        X['H_L_D'] = X['home_t_total_losses'] - X['away_t_total_losses']
+        # X['H_G_D'] = X['home_t_total_goals'] - X['away_t_total_goals']
+        # X['H_GA_D'] = X['home_t_total_goals_against'] - X['away_t_total_goals_against']
+        # X['H_S_D'] = X['home_t_total_shots'] - X['away_t_total_shots']
+        # X['H_SA_D'] = X['home_t_total_shots_against'] - X['away_t_total_shots_against']
+        # X['H_W_D'] = X['home_t_total_wins'] - X['away_t_total_wins']
+        # X['H_L_D'] = X['home_t_total_losses'] - X['away_t_total_losses']
 
-        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_G_D', 'H_GA_D', 'H_S_D', 'H_SA_D', 'H_W_D', 'H_L_D']]
+        # return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_G_D', 'H_GA_D', 'H_S_D', 'H_SA_D', 'H_W_D', 'H_L_D']]
+        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D']]
 
 # class FifaDifferentials2(BaseEstimator, TransformerMixin):
 
@@ -89,22 +65,27 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
 class WeeklyGoalAverages(BaseEstimator, TransformerMixin):
 
     def __init__(self):
+        # self.home_t_total_goals = 'home_t_home_goals'
+        # self.away_t_total_goals = 'away_t_away_goals'
         self.home_t_total_goals = 'home_t_total_goals'
         self.away_t_total_goals = 'away_t_total_goals'
-        self.prev_home_matches = 'prev_home_matches'
-        self.prev_away_matches = 'prev_away_matches'
+        # self.prev_home_matches = 'home_t_prev_home_matches'
+        # self.prev_away_matches = 'away_t_prev_away_matches'
 
     def fit(self, X, y=None):
         return self
-      
+
     def transform(self, X, y=None):
         assert isinstance(X, pd.DataFrame)
-        X['average_home_t_goals'] = X['home_t_total_goals'] / X['prev_home_matches']
-        X['average_away_t_goals'] = X['away_t_total_goals'] / X['prev_away_matches']
+        # X['home_t_average_home_goals'] = X['home_t_home_goals'] / X['home_t_prev_home_matches']
+        # X['away_t_average_away_goals'] = X['away_t_away_goals'] / X['away_t_prev_away_matches']
+        X['home_t_average_goals'] = X['home_t_total_goals'] / (X['stage'] - 1)
+        X['away_t_average_goals'] = X['away_t_total_goals'] / (X['stage'] - 1)
         # dividing by zero returns infinite and NaN values
         X.replace([np.inf, np.nan], 0, inplace=True)
 
-        return X[['average_home_t_goals','average_away_t_goals']]
+        # return X[['home_t_average_home_goals', 'home_t_average_goals', 'away_t_average_goals', 'away_t_average_away_goals']]
+        return X[['home_t_average_goals', 'away_t_average_goals']]
 
 
 
