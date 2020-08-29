@@ -4,9 +4,7 @@ import time
 import pandas as pd
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
-from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages
-
-
+from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression
@@ -44,22 +42,24 @@ class Trainer(object):
         self.split = self.kwargs.get("split", True)
         self.X = X
         self.y = y
+        self.X_test = self.kwargs.get('X_test', None)
+        self.y_test = self.kwargs.get('y_test', None)
         self.y_type = self.kwargs.get('y_type', 'single')
+        self.bet = self.kwargs.get('bet', 10)
 
         if self.y_type == 'single':
             self.le = LabelEncoder()
             self.le.fit(self.y)
-            print(self.le.classes_)
             self.y = self.le.transform(self.y)
+            self.y_test = self.le.transform(self.y_test)
 
 
         if self.split:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
-
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
         self.model_params = None
 
-        self.X_train, self.y_train = self.balancing()
+        self.X_train, self.y_train = self.balancing(self.X_train, self.y_train)
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
@@ -126,17 +126,16 @@ class Trainer(object):
        #          feateng_blocks.remove(bloc)
         # pipe_scale = ColumnTransformer(StandardScaler())
 
-          # 'home_t_total_goals', 'home_t_total_shots','home_t_total_goals_against', 'home_t_total_shots_against', 'away_t_total_goals',
-          # 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_against', 'home_t_total_wins', 'home_t_total_losses',
-          # 'away_t_total_wins', 'away_t_total_losses'
         pipe_fifadiff = make_pipeline(FifaDifferentials(), RobustScaler())
         pipe_winpct = make_pipeline(WinPctDifferentials(), StandardScaler())
         pipe_avggoal = make_pipeline(WeeklyGoalAverages(), StandardScaler())
+        pipe_shototpct = make_pipeline(ShotOTPct())
         pipe_avggoal_ag = make_pipeline(WeeklyGoalAgAverages(), StandardScaler())
 
         feateng_blocks = [('fifadiff', pipe_fifadiff, ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR']),
                           ('windiff', pipe_winpct, ['home_t_total_wins','away_t_total_wins', 'stage']),
                           ('goaldiff', pipe_avggoal, ['home_t_total_goals','away_t_total_goals', 'stage']),
+                          ('shototpct', pipe_shototpct, ['home_t_total_shots', 'home_t_total_shots_ot', 'away_t_total_shots', 'away_t_total_shots_ot']),
                           ('goalagdiff', pipe_avggoal_ag, ['home_t_total_goals_against','away_t_total_goals_against', 'stage'])
                          ]
 
@@ -148,39 +147,39 @@ class Trainer(object):
           ('rgs', self.get_estimator())])
 
 
-    def balancing(self):
+    def balancing(self, X_train, y_train):
         ### OVERSAMPLERS
         balance = self.kwargs.get("balance", "SMOTE")
         if balance == "SMOTE":
           # Create new samples without making any disticntion between easy and hard samples to be classified using K-nearest neighbor
-          X_train, y_train = SMOTE().fit_resample(self.X_train, self.y_train)
+          X_train, y_train = SMOTE().fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         elif balance == "ADASYN":
           # Create new samples next to the original samples which are wrongly classified by using K-Nearest neighbor
-          X_train, y_train = ADASYN().fit_resample(self.X_train, self.y_train)
+          X_train, y_train = ADASYN().fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         elif balance == "RandomOversampler":
           # Duplicating some of the original samples of the minority class
-          X_train, y_train = RandomOverSampler(random_state=0).fit_resample(self.X_train, self.y_train)
+          X_train, y_train = RandomOverSampler(random_state=0).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
 
        ### UNDERSAMPLERS
         if balance == "RandomUnderSampler":
           # balances the data by randomly selecting a subset of data for the targeted classes
-          X_train, y_train = RandomUnderSampler(random_state=0).fit_resample(self.X_train, self.y_train)
+          X_train, y_train = RandomUnderSampler(random_state=0).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
-        if balance == "CLusterCentroids":
+        if balance == "ClusterCentroids":
           # Selects samples based on k-nearest neighbor
-          X_train, y_train = ClusterCentroids(random_state=0).fit_resample(self.X_train, self.y_train)
+          X_train, y_train = ClusterCentroids(random_state=0).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         if balance == "NearMiss":
           # Allows to select 3 different rules of selecting samples based on k-neearest neighbors (version 1,2,3)
-          X_train, y_train = NearMiss(version=1).fit_resample(self.X_train, self.y_train)
+          X_train, y_train = NearMiss(version=1).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         else:
@@ -197,12 +196,13 @@ class Trainer(object):
 
 
     def evaluate(self):
-        bet = self.bet = self.kwargs.get("bet", 10)
+        bet = self.bet
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
-        y_pred = self.pipeline.predict(self.X_val)
-        overall_scores = compute_overall_scores(y_pred,self.y_val)
-        scores = compute_scores(y_pred,self.y_val)
+        y_val_pred = self.pipeline.predict(self.X_val)
+        y_test_pred = self.pipeline.predict(self.X_test)
+        overall_scores = compute_overall_scores(y_val_pred, self.y_val)
+        scores = compute_scores(y_val_pred, self.y_val)
         # self.mlflow_log_metric("accuracy",overall_scores[0])
 
         # self.mlflow_log_metric("precision",overall_scores[1])
@@ -224,8 +224,12 @@ class Trainer(object):
         # self.mlflow_log_metric("support_away",scores[3][1])
         # self.mlflow_log_metric("support_draw",scores[3][2])
 
-        profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_val, y_pred, self.y_val, bet)
-
+        val_profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
+        print('val_profit', val_profit)
+        season_profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
+        print('season_profit', season_profit)
+        print('season_fave', fav_profit_total)
+        print('season_dog', dog_profit_total)
         # self.mlflow_log_metric("profit_model",profit)
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
         # self.mlflow_log_metric("prof_underdogs", dog_profit_total)
@@ -264,24 +268,51 @@ if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=FutureWarning)
 
     experiment = "BeatTheBookies"
-    params = dict(upload=True,
-                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                  gridsearch=False,
-                  optimize=False,
-                  y_type='single',
-                  balance="RandomUnderSampler",
-                  bet = 10,
-                  estimator="logistic",
-                  mlflow=True,  # set to True to log params to mlflow
-                  experiment_name=experiment,
-                  pipeline_memory=None,
-                  feateng=None,
-                  n_jobs=-1)
     df, test_df = get_data(test_season='2019/2020')
     print(df.shape)
-    X = df.drop(columns=['FTR'])
+    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     y = df['FTR']
-    t = Trainer(X=X, y=y, **params)
-    t.train()
-    t.evaluate()
+    models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','xgboost']
+    balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
+    for mod in models:
+        for bal in balancers:
+            print(mod, bal, ':')
+            params = dict(upload=True,
+                          local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                          gridsearch=False,
+                          split=True,
+                          optimize=False,
+                          X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+                          y_test = test_df['FTR'],
+                          y_type='single',
+                          balance=bal,
+                          bet = 10,
+                          estimator=mod,
+                          mlflow=True,  # set to True to log params to mlflow
+                          experiment_name=experiment,
+                          pipeline_memory=None,
+                          feateng=None,
+                          n_jobs=-1)
+            t = Trainer(X=X, y=y, **params)
+            t.train()
+            t.evaluate()
+    # params = dict(upload=True,
+    #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
+    #               gridsearch=False,
+    #               split=True,
+    #               optimize=False,
+    #               X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+    #               y_test = test_df['FTR'],
+    #               y_type='single',
+    #               balance='NearMiss',
+    #               bet = 10,
+    #               estimator='Logistic',
+    #               mlflow=True,  # set to True to log params to mlflow
+    #               experiment_name=experiment,
+    #               pipeline_memory=None,
+    #               feateng=None,
+    #               n_jobs=-1)
+    # t = Trainer(X=X, y=y, **params)
+    # t.train()
+    # t.evaluate()
 

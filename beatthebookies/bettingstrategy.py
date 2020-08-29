@@ -51,11 +51,9 @@ def correct(x):
 
 def compute_profit(df,y_pred,y_true,bet):
     combined = pd.DataFrame({'pred': y_pred, 'act': y_true, 'winning_odds': df['winning_odds']})
-    print(len(y_pred))
     combined['bet'] = -bet
     combined['profit'] = combined.apply(lambda x: correct(x) , axis=1)
     btb_profit_total = combined['profit'].sum()
-    print(btb_profit_total)
 
     fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = simple_betting_profits(df.copy(), bet=bet)
     return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total

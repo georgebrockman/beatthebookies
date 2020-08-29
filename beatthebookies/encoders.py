@@ -132,4 +132,24 @@ class WeeklyGoalAgAverages(BaseEstimator, TransformerMixin):
         return X[['home_t_average_goals_ag_diff']]
 
 
+class ShotOTPct(BaseEstimator, TransformerMixin):
+
+  def __init__(self):
+      pass
+
+
+  def fit(self, X, y=None):
+      return self
+
+  def transform(self, X, y=None):
+      assert isinstance(X, pd.DataFrame)
+      X['home_t_shototpct'] = X['home_t_total_shots_ot'] / X['home_t_total_shots']
+      X['away_t_shototpct'] = X['away_t_total_shots_ot'] / X['away_t_total_shots']
+      # dividing by zero returns infinite and NaN values
+      X.replace([np.inf, np.nan], 0, inplace=True)
+      X['home_t_shototpct_diff'] = X['home_t_shototpct'] - X['away_t_shototpct']
+
+      return X[['home_t_shototpct_diff']]
+
+
 
