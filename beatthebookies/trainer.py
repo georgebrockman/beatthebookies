@@ -5,20 +5,31 @@ import pandas as pd
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct
+from beatthebookies.bettingstrategy import compute_profit
+
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
+
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
 from xgboost import XGBRegressor
+
+import tensorflow
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras import optimizers
+from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten
+from tensorflow.keras.callbacks import EarlyStopping
+
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
+
 from tempfile import mkdtemp
-from beatthebookies.bettingstrategy import compute_profit
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
@@ -46,20 +57,21 @@ class Trainer(object):
         self.y_test = self.kwargs.get('y_test', None)
         self.y_type = self.kwargs.get('y_type', 'single')
         self.bet = self.kwargs.get('bet', 10)
-
-        if self.y_type == 'single':
-            self.le = LabelEncoder()
-            self.le.fit(self.y)
-            self.y = self.le.transform(self.y)
-            self.y_test = self.le.transform(self.y_test)
-
+        self.le = LabelEncoder()
+        self.le.fit(self.y)
+        self.y = self.le.transform(self.y)
+        self.y_test = self.le.transform(self.y_test)
+        if self.y_type == 'categorical':
+            num_classes = 3
+            self.y = tensorflow.keras.utils.to_categorical(self.y, num_classes=num_classes)
+            self.y_test = tensorflow.keras.utils.to_categorical(self.y_test, num_classes=num_classes)
 
         if self.split:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
         self.model_params = None
 
-        self.X_train, self.y_train = self.balancing(self.X_train, self.y_train)
+        # self.X_train, self.y_train = self.balancing(self.X_train, self.y_train)
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
@@ -90,11 +102,18 @@ class Trainer(object):
         elif estimator == "SVC":
             model = SVC()
             self.model_params = { 'kernel': [['linear', 'poly', 'rbf']]}
+        elif estimator == "Sequential":
+            model = Sequential()
+            model.add(Dense(16, activation='relu'))
+            model.add(Dense(3, activation='softmax'))
+            model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
+
         else:
             model = LogisticRegression()
         estimator_params = self.kwargs.get("estimator_params", {})
         # self.mlflow_log_param("estimator", estimator)
-        model.set_params(**estimator_params)
+        if estimator != "Sequential":
+            model.set_params(**estimator_params)
         return model
 
     def set_pipeline(self):
@@ -274,45 +293,45 @@ if __name__ == '__main__':
     y = df['FTR']
     models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','xgboost']
     balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
-    for mod in models:
-        for bal in balancers:
-            print(mod, bal, ':')
-            params = dict(upload=True,
-                          local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                          gridsearch=False,
-                          split=True,
-                          optimize=False,
-                          X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-                          y_test = test_df['FTR'],
-                          y_type='single',
-                          balance=bal,
-                          bet = 10,
-                          estimator=mod,
-                          mlflow=True,  # set to True to log params to mlflow
-                          experiment_name=experiment,
-                          pipeline_memory=None,
-                          feateng=None,
-                          n_jobs=-1)
-            t = Trainer(X=X, y=y, **params)
-            t.train()
-            t.evaluate()
-    # params = dict(upload=True,
-    #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
-    #               gridsearch=False,
-    #               split=True,
-    #               optimize=False,
-    #               X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-    #               y_test = test_df['FTR'],
-    #               y_type='single',
-    #               balance='NearMiss',
-    #               bet = 10,
-    #               estimator='Logistic',
-    #               mlflow=True,  # set to True to log params to mlflow
-    #               experiment_name=experiment,
-    #               pipeline_memory=None,
-    #               feateng=None,
-    #               n_jobs=-1)
-    # t = Trainer(X=X, y=y, **params)
-    # t.train()
-    # t.evaluate()
+    # for mod in models:
+    #     for bal in balancers:
+    #         print(mod, bal, ':')
+    #         params = dict(upload=True,
+    #                       local=False,  # set to False to get data from GCP (Storage or BigQuery)
+    #                       gridsearch=False,
+    #                       split=True,
+    #                       optimize=False,
+    #                       X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+    #                       y_test = test_df['FTR'],
+    #                       y_type='label',
+    #                       balance=bal,
+    #                       bet = 10,
+    #                       estimator=mod,
+    #                       mlflow=True,  # set to True to log params to mlflow
+    #                       experiment_name=experiment,
+    #                       pipeline_memory=None,
+    #                       feateng=None,
+    #                       n_jobs=-1)
+    #         t = Trainer(X=X, y=y, **params)
+            # t.train()
+            # t.evaluate()
+    params = dict(upload=True,
+                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  gridsearch=False,
+                  split=True,
+                  optimize=False,
+                  X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+                  y_test = test_df['FTR'],
+                  y_type='categorical',
+                  # balance='NearMiss',
+                  bet = 10,
+                  estimator='Sequential',
+                  mlflow=True,  # set to True to log params to mlflow
+                  experiment_name=experiment,
+                  pipeline_memory=None,
+                  feateng=None,
+                  n_jobs=-1)
+    t = Trainer(X=X, y=y, **params)
+    t.train()
+    t.evaluate()
 
