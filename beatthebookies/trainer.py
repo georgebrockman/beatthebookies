@@ -2,6 +2,7 @@ import mlflow
 import warnings
 import time
 import pandas as pd
+import numpy as np
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct, HomeAdv
@@ -191,7 +192,7 @@ class Trainer(object):
         if balance == "NearMiss":
           # Allows to select 3 different rules of selecting samples based on k-neearest neighbors (version 1,2,3)
           X_train, y_train = NearMiss(version=1).fit_resample(X_train, y_train)
-          print(Counter(y_train))
+          # print(Counter(y_train))
           return X_train, y_train
         else:
           return X_train, y_train
@@ -216,29 +217,34 @@ class Trainer(object):
             raise ("Cannot evaluate an empty pipeline")
         y_val_pred = self.pipeline.predict(self.X_val)
         y_test_pred = self.pipeline.predict(self.X_test)
+        idx = np.argmax(y_val_pred, axis=-1)
+        y_val_pred = np.zeros(y_val_pred.shape)
+        y_val_pred[np.arange(y_val_pred.shape[0]), idx] = 1
 
-        # overall_scores = compute_overall_scores(y_val_pred, self.y_val)
-        # scores = compute_scores(y_test_pred, self.y_test)
-        # self.mlflow_log_metric("accuracy", scores[0])
+        overall_scores = compute_overall_scores(y_val_pred, self.y_val)
+        print(y_val_pred)
+        print(self.y_val)
+        scores = compute_scores(y_val_pred, self.y_val)
+        self.mlflow_log_metric("accuracy",overall_scores[0])
 
-        # self.mlflow_log_metric("precision",scores[1])
-        # # self.mlflow_log_metric("precision_home",scores[0][0])
-        # # self.mlflow_log_metric("precision_away",scores[0][1])
-        # # self.mlflow_log_metric("precision_draw",scores[0][2])
+        self.mlflow_log_metric("precision",overall_scores[1])
+        self.mlflow_log_metric("precision_home",scores[0][0])
+        self.mlflow_log_metric("precision_away",scores[0][1])
+        self.mlflow_log_metric("precision_draw",scores[0][2])
 
-        # self.mlflow_log_metric("recall",scores[2])
-        # # self.mlflow_log_metric("recall_home",scores[1][0])
-        # # self.mlflow_log_metric("recall_away",scores[1][1])
-        # # self.mlflow_log_metric("recall_draw",scores[1][2])
+        self.mlflow_log_metric("recall",overall_scores[2])
+        self.mlflow_log_metric("recall_home",scores[1][0])
+        self.mlflow_log_metric("recall_away",scores[1][1])
+        self.mlflow_log_metric("recall_draw",scores[1][2])
 
-        # self.mlflow_log_metric("f1",scores[3])
-        # # self.mlflow_log_metric("f1_home",scores[2][0])
-        # # self.mlflow_log_metric("f1_away",scores[2][1])
-        # # self.mlflow_log_metric("f1_draw",scores[2][2])
+        self.mlflow_log_metric("f1",overall_scores[3])
+        self.mlflow_log_metric("f1_home",scores[2][0])
+        self.mlflow_log_metric("f1_away",scores[2][1])
+        self.mlflow_log_metric("f1_draw",scores[2][2])
 
-        # self.mlflow_log_metric("support_home",scores[3][0])
-        # self.mlflow_log_metric("support_away",scores[3][1])
-        # self.mlflow_log_metric("support_draw",scores[3][2])
+        self.mlflow_log_metric("support_home",scores[3][0])
+        self.mlflow_log_metric("support_away",scores[3][1])
+        self.mlflow_log_metric("support_draw",scores[3][2])
 
         val_profit, fav_profit_v_total, dog_profit_v_total, home_profit_v_total, draw_profit_v_total, away_profit_v_total = compute_profit(self.X_val, y_val_pred, self.y_val, bet, self.y_type)
         season_profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test, y_test_pred, self.y_test, bet, self.y_type)
@@ -335,4 +341,5 @@ if __name__ == '__main__':
     # t = Trainer(X=X, y=y, **params)
     # t.train()
     # t.evaluate()
+
 
