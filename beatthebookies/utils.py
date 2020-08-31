@@ -6,7 +6,7 @@ from sklearn.metrics import precision_recall_fscore_support as score
 
 
 def compute_overall_scores(y_pred,y_true):
-    acc = accuracy_score(y_true,y_pred)
+    acc = accuracy_score(y_true, y_pred)
     pre = precision_score(y_true,y_pred, average='weighted',zero_division=0)
     rec = recall_score(y_true,y_pred, average='weighted')
     f1 = f1_score(y_true,y_pred, average='weighted',zero_division=0)
