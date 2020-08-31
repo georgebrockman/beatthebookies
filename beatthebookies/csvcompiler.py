@@ -44,7 +44,16 @@ from beatthebookies.utils import simple_time_tracker
     #     df.rename(columns={"ATT": "A_ATT", "MID":"A_MID","DEF":"A_DEF", "OVR":"A_OVR"}, inplace=True)
 
     #     return df
+def get_under_dogs(df):
+    def under_win(x):
+        if x['winning_odds'] == x[['WHH','WHD','WHA']].max():
+            return 1
+        else:
+            return 0
 
+    df['under_win'] = 0
+    df['under_win'] = df.apply(lambda x: under_win(x), axis=1)
+    return df
 
 def get_opp_totals(df):
     print('getting opposite totals')
@@ -215,6 +224,7 @@ def get_csv_data():
     df = get_winning_odds(df)
     df = get_loc_totals(df)
     df = get_opp_totals(df)
+    df = get_under_dogs(df)
 
     return df
 

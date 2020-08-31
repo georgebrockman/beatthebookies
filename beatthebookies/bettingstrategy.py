@@ -44,19 +44,39 @@ def simple_betting_profits(df, bet=10):
 def model_profits(df, bet=10):
     pass
 
-def correct(x):
+def correct_single(x):
     if x['pred'] == x['act']:
         return abs(x['bet'] * x['winning_odds']) + x['bet']
     return x['bet']
 
-def compute_profit(df,y_pred,y_true,bet):
-    combined = pd.DataFrame({'pred': y_pred, 'act': y_true, 'winning_odds': df['winning_odds']})
-    combined['bet'] = -bet
-    combined['profit'] = combined.apply(lambda x: correct(x) , axis=1)
-    btb_profit_total = combined['profit'].sum()
+def correct_multi(x):
+    if x['diff'] == 0:
+        return abs(x['bet'] * x['winning_odds']) + x['bet']
+    return x['bet']
 
+def compute_profit(df,y_pred,y_true,bet, y_type):
     fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = simple_betting_profits(df.copy(), bet=bet)
-    return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
+    if y_type == 'single':
+        combined = pd.DataFrame({'pred': y_pred, 'act': y_true, 'winning_odds': df['winning_odds']})
+        combined['bet'] = -bet
+        print('len', len(combined))
+        print('pred:',combined.pred.sum())
+        print('act:',combined.act.sum())
+        combined['profit'] = combined.apply(lambda x: correct_single(x) , axis=1)
+        print('profit:', combined.profit.sum())
+        btb_profit_total = combined['profit'].sum()
+        return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
+
+    if y_type == 'multi':
+        y_pred = (y_pred == y_pred.max(axis=1)[:,None]).astype(int)
+        variance = abs(y_pred - y_true)
+        diff = np.sum(a=variance, axis=1)
+        combined = pd.DataFrame({'diff': diff, 'winning_odds': df['winning_odds']})
+        combined['bet'] = -bet
+        combined['profit'] = combined.apply(lambda x: correct_multi(x) , axis=1)
+        btb_profit_total = combined['profit'].sum()
+        return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
+
 
 
 
