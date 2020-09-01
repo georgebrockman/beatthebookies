@@ -3,10 +3,15 @@ import warnings
 import time
 import pandas as pd
 import numpy as np
+import joblib
+import tensorflow
+
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct, HomeAdv
 from beatthebookies.bettingstrategy import compute_profit
+from beatthebookies.gcp import storage_upload
+from beatthebookies.params import MODEL_VERSION
 
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
@@ -18,26 +23,27 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from xgboost import XGBRegressor, XGBClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
+from sklearn.compose import ColumnTransformer
 
-import tensorflow
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import optimizers, regularizers
 from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from keras.wrappers.scikit_learn import KerasClassifier
+from keras.layers import BatchNormalization
 
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
-from sklearn.compose import ColumnTransformer
-
-from tempfile import mkdtemp
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
-from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
 
-from keras.layers import BatchNormalization
+from tempfile import mkdtemp
+from collections import Counter
+from termcolor import colored
+
+
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -52,15 +58,17 @@ class Trainer(object):
     ESTIMATOR = 'logistic'
     rs = RandomUnderSampler(random_state=0)
 
-    def __init__(self, X, y, **kwargs):
+    def __init__(self, X, y, X_test=None, y_test=None, **kwargs):
         self.pipeline = None
         self.kwargs = kwargs
         self.split = self.kwargs.get("split", True)
         self.mlflow = kwargs.get("mlflow", False)  # if True log info to nlflow
+        self.local = kwargs.get("local", True)
+        self.grid = kwargs.get("gridsearch", False)
         self.X = X
         self.y = y
-        self.X_test = self.kwargs.get('X_test', None)
-        self.y_test = self.kwargs.get('y_test', None)
+        self.X_test = X_test
+        self.y_test = y_test
         self.y_type = self.kwargs.get('y_type', 'single')
         self.bet = self.kwargs.get('bet', 10)
 
@@ -97,15 +105,13 @@ class Trainer(object):
         #     model = GradientBoostingRegressor()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
-        elif estimator == 'GaussianNB':
-            model = GaussianNB()
-        elif estimator == 'LDA':
-            model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         # classification models
         if estimator == 'Logistic':
             model = LogisticRegression()
+        elif estimator == 'LDA':
+            model = LinearDiscriminantAnalysis()
         elif estimator == 'RandomForestClassifier':
             model = RandomForestClassifier()
         elif estimator == "RidgeClassifier":
@@ -282,6 +288,14 @@ class Trainer(object):
 
         return season_profit
 
+    def save_model(self, upload=True, auto_remove=True):
+        """Save the model into a .joblib and upload it on Google Storage /models folder
+        HINTS : use sklearn.joblib (or jbolib) libraries and google-cloud-storage"""
+        joblib.dump(self.pipeline, 'model.joblib')
+        print(colored("model.joblib saved locally", "green"))
+
+        if not self.local:
+            storage_upload(model_version=MODEL_VERSION)
 
     @memoized_property
     def mlflow_client(self):
@@ -311,36 +325,41 @@ if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
 
     experiment = "BeatTheBookies"
-    df, test_df = get_data(test_season='2019/2020')
-    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    y = df['under_win']
-    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC']
+    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     models = ['Logistic', 'RandomForestClassifier','SVC']
     balancers = ['SMOTE', 'RandomUnderSampler']
-    for mod in models:
-        for bal in balancers:
-            print(mod, bal, ':')
-            params = dict(upload=True,
-                          local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                          gridsearch=False,
-                          split=True,
-                          optimize=False,
-                          X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-                          y_test = test_df['under_win'],
-                          y_type='label',
-                          balance=bal,
-                          bet = 10,
-                          threshold=0.5,
-                          estimator=mod,
-                          mlflow=True,  # set to True to log params to mlflow
-                          experiment_name=experiment,
-                          pipeline_memory=None,
-                          feateng=None,
-                          n_jobs=-1)
-            t = Trainer(X=X, y=y, **params)
-            t.train()
-            t.evaluate()
+    # for mod in models:
+    #     for bal in balancers:
+    #         print(mod, bal, ':')
+    params = dict(upload=True,
+                  test_season='2019/2020',
+                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  gridsearch=False,
+                  split=True,
+                  y_type='label',
+                  balance='SMOTE',
+                  bet = 10,
+                  threshold=0.5,
+                  estimator='SVC',
+                  mlflow=True,  # set to True to log params to mlflow
+                  experiment_name=experiment,
+                  pipeline_memory=None,
+                  feateng=None,
+                  n_jobs=-1)
+    df, test_df = get_data(**params)
+    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    y = df['under_win']
+    X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    y_test = test_df['under_win']
+    t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
+    print(colored("############  Training model   ############", "red"))
+    t.train()
+    print(colored("############  Evaluating model ############", "blue"))
+    t.evaluate()
+    print(colored("############   Saving model    ############", "green"))
+    t.save_model()
+
     # params = dict(upload=True,
     #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
     #               gridsearch=False,
@@ -359,7 +378,11 @@ if __name__ == '__main__':
     #               feateng=None,
     # #               n_jobs=-1)
     # t = Trainer(X=X, y=y, **params)
+    # print(colored("############  Training model   ############", "red"))
     # t.train()
+    # print(colored("############  Evaluating model ############", "blue"))
     # t.evaluate()
+    # print(colored("############   Saving model    ############", "green"))
+    # t.save_model()
 
 

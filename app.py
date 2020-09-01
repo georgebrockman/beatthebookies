@@ -11,7 +11,7 @@ from beatthebookies.gcp import download_model
 app = Flask(__name__)
 CORS(app)
 
-PATH_TO_MODEL = "data/model.joblib"
+PATH_TO_MODEL = "model.joblib"
 
 st.markdown("**Beat the Bookies**")
 
