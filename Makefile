@@ -60,6 +60,22 @@ pypi:
 	@twine upload dist/* -u lologibus2
 
 
+# ----------------------------------
+#         HEROKU COMMANDS
+# ----------------------------------
+APP_NAME=beat-the-bookies
+streamlit:
+	-@streamlit run app_streamlit.py
+
+heroku_login:
+	-@heroku login
+
+heroku_create_app:
+	-@heroku create ${APP_NAME}
+
+deploy_heroku:
+	-@git push heroku master
+	-@heroku ps:scale web=1
 
 
 # ----------------------------------
