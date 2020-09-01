@@ -105,10 +105,14 @@ class Trainer(object):
         #     model = GradientBoostingRegressor()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
+        if estimator == 'GaussianNB':
+            model = GaussianNB()
+        elif estimator == 'LDA':
+            model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         # classification models
-        if estimator == 'Logistic':
+        elif estimator == 'Logistic':
             model = LogisticRegression()
         elif estimator == 'LDA':
             model = LinearDiscriminantAnalysis()
@@ -323,8 +327,11 @@ class Trainer(object):
 
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
-
+    
     experiment = "BeatTheBookies"
+    df, test_df = get_data(test_season='2019/2020')
+    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    y = df['under_win']
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     models = ['Logistic', 'RandomForestClassifier','SVC']
