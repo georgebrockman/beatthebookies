@@ -25,7 +25,8 @@ REQUIRED_PACKAGES = [
 'mlflow',
 'imbalanced-learn',
 'keras',
-'joblib']
+'joblib',
+'streamlit']
 
 setup(name='beatthebookies',
       # install_requires=requirements,

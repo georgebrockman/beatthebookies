@@ -327,7 +327,14 @@ class Trainer(object):
 
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
-    
+
+    cols = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
+        'home_t_total_wins','away_t_total_wins', 'stage','home_t_total_goals','away_t_total_goals',
+        'home_t_home_goals','home_t_home_goals_against','away_t_away_goals','away_t_away_goals_against',
+        'home_t_prev_home_matches', 'away_t_prev_away_matches', 'home_t_total_shots', 'home_t_total_shots_ot',
+        'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
+        'home_w', 'away_w', 'draw', 'winning_odds']
+
     experiment = "BeatTheBookies"
     df, test_df = get_data(test_season='2019/2020')
     X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
@@ -355,9 +362,11 @@ if __name__ == '__main__':
                   feateng=None,
                   n_jobs=-1)
     df, test_df = get_data(**params)
-    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X = df[cols]
     y = df['under_win']
-    X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X_test = test_df[cols]
     y_test = test_df['under_win']
     t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
     print(colored("############  Training model   ############", "red"))
