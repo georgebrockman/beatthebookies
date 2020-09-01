@@ -16,13 +16,14 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from xgboost import XGBRegressor, XGBClassifier
 
 import tensorflow
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras import optimizers
-from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN
+from tensorflow.keras import optimizers, regularizers
+from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from keras.wrappers.scikit_learn import KerasClassifier
 
@@ -35,6 +36,8 @@ from tempfile import mkdtemp
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
+
+from keras.layers import BatchNormalization
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -111,6 +114,8 @@ class Trainer(object):
         #     model = KNeighborsRegressor()
         elif estimator == 'GaussianNB':
             model = GaussianNB()
+        elif estimator == 'LDA':
+            model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         elif estimator == "XGBClassifier":
@@ -119,9 +124,13 @@ class Trainer(object):
             model = SVC(kernel='poly')
         elif estimator == "Sequential":
             model = Sequential()
+            model.add(Flatten())
+            model.add(BatchNormalization())
+            model.add(Dense(32, activation='relu'))
             model.add(Dense(32, activation='relu'))
             model.add(Dense(16, activation='relu'))
-            model.add(Dense(8, activation='relu'))
+            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu',input_shape=(10000,)))
+            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu'))
             model.add(Dense(1, activation='sigmoid'))
             # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
             model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
@@ -284,7 +293,7 @@ class Trainer(object):
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
 
-    experiment = "BeatTheBookies-8.31"
+    experiment = "BeatTheBookies"
     df, test_df = get_data(test_season='2019/2020')
     print(df.shape)
     X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
@@ -322,10 +331,10 @@ if __name__ == '__main__':
                   optimize=False,
                   X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
                   y_test = test_df['under_win'],
-                  y_type='multi',
+                  y_type='single',
                   balance='SMOTE',
                   bet = 10,
-                  estimator='Sequential',
+                  estimator='LDA',
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
