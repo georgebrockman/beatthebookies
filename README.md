@@ -8,7 +8,7 @@ then comparing how much profit/loss the model's predictions returned by the end 
 away team or draw every time.
 
 Data Source:
-- https://www.football-data.co.uk - match statistics and WH betting odds.
+- https://www.football-data.co.uk - match statistics and William Hill betting odds.
 - https://www.fifaindex.com - fifa stats were scraped from here
 
 Type of analysis:
