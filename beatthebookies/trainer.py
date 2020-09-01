@@ -105,10 +105,14 @@ class Trainer(object):
         #     model = GradientBoostingRegressor()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
+        if estimator == 'GaussianNB':
+            model = GaussianNB()
+        elif estimator == 'LDA':
+            model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         # classification models
-        if estimator == 'Logistic':
+        elif estimator == 'Logistic':
             model = LogisticRegression()
         elif estimator == 'LDA':
             model = LinearDiscriminantAnalysis()
@@ -323,13 +327,18 @@ class Trainer(object):
 
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
+
     cols = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
         'home_t_total_wins','away_t_total_wins', 'stage','home_t_total_goals','away_t_total_goals',
         'home_t_home_goals','home_t_home_goals_against','away_t_away_goals','away_t_away_goals_against',
         'home_t_prev_home_matches', 'away_t_prev_away_matches', 'home_t_total_shots', 'home_t_total_shots_ot',
         'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
         'home_w', 'away_w', 'draw', 'winning_odds']
+
     experiment = "BeatTheBookies"
+    df, test_df = get_data(test_season='2019/2020')
+    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    y = df['under_win']
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     models = ['Logistic', 'RandomForestClassifier','SVC']
