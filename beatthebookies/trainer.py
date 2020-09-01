@@ -63,22 +63,17 @@ class Trainer(object):
         self.y_test = self.kwargs.get('y_test', None)
         self.y_type = self.kwargs.get('y_type', 'single')
         self.bet = self.kwargs.get('bet', 10)
-        # self.le = LabelEncoder()
-        # self.le.fit(self.y)
-        # self.y = self.le.transform(self.y)
-        # self.y_test = self.le.transform(self.y_test)
-        # if self.y_type == 'multi':
-        #     num_classes = 3
-        #     self.y = tensorflow.keras.utils.to_categorical(self.y, num_classes=num_classes)
-        #     self.y_test = tensorflow.keras.utils.to_categorical(self.y_test, num_classes=num_classes)
 
         if self.split:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
-        self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
-        # self.model_params = None
-        self.log_kwargs_params()
+            self.X_train, self.y_train = self.balancing(self.X_train, self.y_train)
+        else:
+            self.X_train, self.y_train = self.balancing(self.X, self.y)
 
-        self.X_train, self.y_train = self.balancing(self.X_train, self.y_train)
+        self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
+        self.log_kwargs_params()
+        # self.model_params = None
+
     def log_kwargs_params(self):
           if self.mlflow:
                 self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'))
@@ -86,30 +81,20 @@ class Trainer(object):
                 self.mlflow_log_param('bet', self.kwargs.get('bet', 10))
 
 
-
-
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
         self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
-        if estimator == 'Logistic':
-            model = LogisticRegression()
         # elif estimator == 'Linear':
         #     model = LinearRegression()
-        elif estimator == 'RandomForestClassifier':
-            model = RandomForestClassifier()
         # elif estimator == 'RandomForestRegressor':
         #     model = RandomForestRegressor()
         # elif estimator == 'Lasso':
         #     model = Lasso()
         # elif estimator == "Ridge":
         #     model = Ridge()
-        elif estimator == "RidgeClassifier":
-            model = RidgeClassifier()
         # elif estimator == "GBM":
         #     model = GradientBoostingRegressor()
-        elif estimator == "KNNClassifier":
-            model = KNeighborsClassifier()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
         elif estimator == 'GaussianNB':
@@ -118,6 +103,17 @@ class Trainer(object):
             model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
+        # classification models
+        if estimator == 'Logistic':
+            model = LogisticRegression()
+        elif estimator == 'RandomForestClassifier':
+            model = RandomForestClassifier()
+        elif estimator == "RidgeClassifier":
+            model = RidgeClassifier()
+        elif estimator == "KNNClassifier":
+            model = KNeighborsClassifier()
+        elif estimator == 'GaussianNB':
+            model = GaussianNB()
         elif estimator == "XGBClassifier":
             model = XGBClassifier()
         elif estimator == "SVC":
@@ -137,6 +133,7 @@ class Trainer(object):
 
         else:
             model = LogisticRegression()
+
         estimator_params = self.kwargs.get("estimator_params", {})
         if estimator != "Sequential":
             model.set_params(**estimator_params)
@@ -212,7 +209,7 @@ class Trainer(object):
         tic = time.time()
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
-        if self.y_type == 'multi':
+        if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
             self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
                         rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
         else:
@@ -224,38 +221,58 @@ class Trainer(object):
         bet = self.bet
         if self.pipeline is None:
             raise ("Cannot evaluate an empty pipeline")
-        y_val_pred = self.pipeline.predict(self.X_val)
+
+        if self.split:
+            y_val_pred = self.pipeline.predict(self.X_val)
+            # y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
         # y_test_pred = self.pipeline.predict(self.X_test)
-        y_test_pred = self.pipeline.predict(self.X_test).reshape((380,))
+        y_test_pred = self.pipeline.predict(self.X_test) #.reshape((380,))
+        # y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
 
+        def predict_threshold(x):
+            if x['pct'] >= self.kwargs.get('threshold', 0.5):
+                return 1
+            return 0
 
-        # if self.y_type == 'multi':
-        #     idx = np.argmax(y_val_pred, axis=-1)
-        #     y_val_pred = np.zeros(y_val_pred.shape)
-        #     y_val_pred[np.arange(y_val_pred.shape[0]), idx] = 1
+        if self.y_type == 'pct':
+            convert = pd.DataFrame({'pct': y_test_pred})
+            convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
+            positives = convert.predict.sum()
+            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            scores = compute_overall_scores(convert.predict, self.y_test)
+            # val
+            convert = pd.DataFrame({'pct': y_val_pred})
+            convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
+            val_positives = convert.predict.sum()
+            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            val_scores = compute_overall_scores(convert.predict, self.y_val)
 
-        # scores = compute_overall_scores(y_val_pred, self.y_val)
-        # self.mlflow_log_metric("val_precision",scores[1])
-        # self.mlflow_log_metric("val_accuracy",scores[0])
-        # self.mlflow_log_metric("val_recall",scores[2])
-        # self.mlflow_log_metric("val_f1",scores[3])
-        if self.y_type == 'single':
+        if self.y_type == 'label':
+            val_scores = compute_overall_scores(y_val_pred, self.y_val)
             scores = compute_overall_scores(y_test_pred, self.y_test)
-            season_profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test, y_test_pred, self.y_test, bet, self.y_type, 0.5)
+            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
+            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
+            val_positives = y_val_pred.sum()
+            positives = y_test_pred.sum()
+        self.mlflow_log_metric("val_f1",val_scores[1])
+        self.mlflow_log_metric("val_accuracy",val_scores[0])
+        self.mlflow_log_metric("val_recall",val_scores[2])
+        self.mlflow_log_metric("val_f1",val_scores[3])
+        self.mlflow_log_metric('val_picked', val_positives)
+        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
+        self.mlflow_log_metric('val_model_profits', val_model_profit)
 
-        if self.y_type == 'multi':
-            scores, season_profit, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = compute_profit(self.X_test, y_test_pred, self.y_test, bet, self.y_type, 0.5)
 
+        self.mlflow_log_metric('test_picked', positives)
         self.mlflow_log_metric("test_precision",scores[1])
         self.mlflow_log_metric("test_accuracy",scores[0])
         self.mlflow_log_metric("test_recall",scores[2])
-        self.mlflow_log_metric("test_f1",scores[3])
         self.mlflow_log_metric("profit_model",season_profit)
-        self.mlflow_log_metric("prof_favorites",fav_profit_total)
         self.mlflow_log_metric("prof_underdogs", dog_profit_total)
-        self.mlflow_log_metric("prof_home", home_profit_total)
-        self.mlflow_log_metric("prof_draw", draw_profit_total)
-        self.mlflow_log_metric("prof_away", away_profit_total)
+        # self.mlflow_log_metric("prof_favorites",fav_profit_total)
+        # self.mlflow_log_metric("prof_home", home_profit_total)
+        # self.mlflow_log_metric("prof_draw", draw_profit_total)
+        # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
@@ -295,53 +312,54 @@ if __name__ == '__main__':
 
     experiment = "BeatTheBookies"
     df, test_df = get_data(test_season='2019/2020')
-    print(df.shape)
     X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     y = df['under_win']
-    models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC']
-    # models = ['Logistic', 'RandomForestClassifier','SVC']
-    balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
-    # balancers = ['SMOTE', 'RandomUnderSampler']
-    # for mod in models:
-    #     for bal in balancers:
-    #         print(mod, bal, ':')
-    #         params = dict(upload=True,
-    #                       local=False,  # set to False to get data from GCP (Storage or BigQuery)
-    #                       gridsearch=False,
-    #                       split=True,
-    #                       optimize=False,
-    #                       X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-    #                       y_test = test_df['under_win'],
-    #                       y_type='single',
-    #                       balance=bal,
-    #                       bet = 10,
-    #                       estimator=mod,
-    #                       mlflow=True,  # set to True to log params to mlflow
-    #                       experiment_name=experiment,
-    #                       pipeline_memory=None,
-    #                       feateng=None,
-    #                       n_jobs=-1)
-    #         t = Trainer(X=X, y=y, **params)
-    #         t.train()
-    #         t.evaluate()
-    params = dict(upload=True,
-                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                  gridsearch=False,
-                  split=True,
-                  optimize=False,
-                  X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-                  y_test = test_df['under_win'],
-                  y_type='single',
-                  balance='SMOTE',
-                  bet = 10,
-                  estimator='LDA',
-                  mlflow=True,  # set to True to log params to mlflow
-                  experiment_name=experiment,
-                  pipeline_memory=None,
-                  feateng=None,
-                  n_jobs=-1)
-    t = Trainer(X=X, y=y, **params)
-    t.train()
-    t.evaluate()
+    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC']
+    # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
+    models = ['Logistic', 'RandomForestClassifier','SVC']
+    balancers = ['SMOTE', 'RandomUnderSampler']
+    for mod in models:
+        for bal in balancers:
+            print(mod, bal, ':')
+            params = dict(upload=True,
+                          local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                          gridsearch=False,
+                          split=True,
+                          optimize=False,
+                          X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+                          y_test = test_df['under_win'],
+                          y_type='label',
+                          balance=bal,
+                          bet = 10,
+                          threshold=0.5,
+                          estimator=mod,
+                          mlflow=True,  # set to True to log params to mlflow
+                          experiment_name=experiment,
+                          pipeline_memory=None,
+                          feateng=None,
+                          n_jobs=-1)
+            t = Trainer(X=X, y=y, **params)
+            t.train()
+            t.evaluate()
+    # params = dict(upload=True,
+    #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
+    #               gridsearch=False,
+    #               split=True,
+    #               optimize=False,
+    #               X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
+    #               y_test = test_df['under_win'],
+    #               y_type='pct',
+    #               balance='SMOTE',
+    #               bet = 100,
+    #               threshold = 0.85,
+    #               estimator='SVC',
+    #               mlflow=True,  # set to True to log params to mlflow
+    #               experiment_name=experiment,
+    #               pipeline_memory=None,
+    #               feateng=None,
+    # #               n_jobs=-1)
+    # t = Trainer(X=X, y=y, **params)
+    # t.train()
+    # t.evaluate()
 
 

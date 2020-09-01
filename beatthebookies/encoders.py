@@ -21,8 +21,10 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
         X['H_MID_D'] = X['H_MID'] - X['A_MID']
         X['H_DEF_D'] = X['H_DEF'] - X['A_DEF']
         X['H_OVR_D'] = X['H_OVR'] - X['A_OVR']
+        X['H_ATT_A'] = X['H_ATT'] - X['A_DEF']
+        X['H_DEF_A'] = X['H_DEF'] - X['A_ATT']
 
-        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D']]
+        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_ATT_A', 'H_DEF_A']]
 
 
 class WeeklyGoalAverages(BaseEstimator, TransformerMixin):
