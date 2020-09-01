@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 
 
-def scrape():
+def scrape_historical():
     url = f"https://www.fifaindex.com/teams/fifa05/?league=13&order=desc"
     while(True):
         print("Getting page for 05")
@@ -80,8 +80,36 @@ team_dict = {'West Bromwich': 'West Brom', 'West Bromwich Albion': 'West Brom',
              'Watford':'Watford', 'Brighton & Hove Albion': 'Brighton', 'Huddersfield Town': 'Huddersfield'
             }
 
+def scrape_new():
+    url = f"https://www.fifaindex.com/teams/fifa21/?league=13&order=desc"
+    while(True):
+        print("Getting page for 21")
+        try:
+          page = requests.get(url)
+        except requests.exceptions.RequestException as e:  # This is the correct syntax
+            print(e)
+            continue
+        break
+    html = page.content
+    soup = BeautifulSoup(html,'lxml')
+
+    table = soup.find('table')
+    table_rows = table.find_all('tr')
+
+    data = []
+    for tr in table_rows:
+        td = tr.find_all('td')
+        row = [i.text for i in td]
+        if len(row) > 7:
+            data.append(row[1:-1])
+
+    df = pd.DataFrame(data, columns=['Team', 'League', 'ATT', 'MID', 'DEF', 'OVR'])
+    df['season'] = '2020/2021'
+    df.to_csv( "beatthebookies/data/fifarank21.csv", index=False, encoding='utf-8-sig')
+
 
 if __name__ == '__main__':
-    scrape()
+    # scrape_historical()
+    scrape_new()
 
 

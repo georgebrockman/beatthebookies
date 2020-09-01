@@ -2,18 +2,47 @@ import joblib
 import pandas as pd
 import numpy as np
 import pytz
+import ipdb
+import streamlit as st
+
 from flask_cors import CORS
 from flask import Flask
 from flask import request
-import streamlit as st
-import ipdb
+from random import randint, uniform
+
 
 from beatthebookies.gcp import download_model
+from beatthebookies.fifascrape import scrape_new
 
 app = Flask(__name__)
 CORS(app)
 
 PATH_TO_MODEL = "model.joblib"
+
+
+# TEAMS = ['Arsenal ',
+#         'Aston Villa',
+#         'Brighton & Hove Albion',
+#         'Burnley',
+#         'Chelsea',
+#         'Crystal Palace',
+#         'Everton',
+#         'Fulham',
+#         'Leeds United',
+#         'Leicester City',
+#         'Liverpool',
+#         'Manchester City',
+#         'Manchester United',
+#         'Newcastle United ',
+#         'Sheffield United ',
+#         'Southampton ',
+#         'Tottenham Hotspur',
+#         'West Bromwich Albion',
+#         'West Ham United ',
+#         'Wolverhampton Wanderers']
+
+DF = pd.read_csv('beatthebookies/data/fifarank21.csv')
+TEAMS = DF['Team']
 
 COLS = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
         'home_t_total_wins','away_t_total_wins', 'stage','home_t_total_goals','away_t_total_goals',
@@ -26,7 +55,7 @@ COLS = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
 def format_input(input):
     formated_input = {}
     for col in COLS:
-        formated_input[col] = float(input[col])
+        formated_input[col] = randint(1,20) #float(input[col])
     # formated_input = {
     #     'H_ATT': float(input['H_ATT']), 'A_ATT': float(input['A_ATT']), 'H_MID': float(input['H_MID']), 'A_MID': float(input['A_MID']),
     #     'H_DEF': float(input['H_DEF']), 'A_DEF': float(input['A_DEF']), 'H_OVR': float(input['H_OVR']), 'A_OVR': float(input['A_OVR']),
@@ -41,8 +70,8 @@ def format_input(input):
     return formated_input
 
 
-pipeline_def = {'pipeline': joblib.load(PATH_TO_MODEL),
-                'from_gcp': False}
+# pipeline_def = {'pipeline': joblib.load(PATH_TO_MODEL),
+#                 'from_gcp': False}
 
 
 @app.route('/')
@@ -81,7 +110,7 @@ def set_model():
     pipeline_def["from_gcp"] = True
     return {"reponse": f"correctly got model from {model_dir} directory on GCP"}
 
-# st.markdown("**Beat the Bookies**")
+st.markdown("**Beat the Bookies**")
 
 
 # @st.cache
@@ -94,37 +123,52 @@ def set_model():
 #     pass
 
 
-# def main():
-#     analysis = st.sidebar.selectbox("Choose prediction type", ["Match Result", "Match Score"])
-#     if analysis == 'Match Result':
-#         pipeline = joblib.load('data/modelclf.joblib')
-#         st.header("Beat the Bookies, pick the winner")
-#         # input from user with arbitary default team name suggestions and game week
-#         stage = st.text_input('Game Week', 1)
-#         home_team = st.text_input('Home Team', 'Arsenal')
-#         away_team = st.text_input('Away Team', 'Man City')
+def main():
+    analysis = st.sidebar.selectbox("Choose prediction type", ["Underdog Picker", "Model Results"])
 
-#         # missing what to put in the prediction t
-#         prediction = pipeline.predict()
-#         st.write(f"Looks like your best bet is {prediction[0]}")
-#         st.markdown("**Place your bets with your favourite Bookmaker**")
-#         st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
+    if analysis == 'Underdog Picker':
+        pipeline = joblib.load('model.joblib')
+        st.header("Beat the Bookies, find the underdog")
+        # input from user with arbitary default team name suggestions and game week
+        home_team = st.selectbox('Home Team', TEAMS)
+        away_team = st.selectbox('Away Team', TEAMS)
+        st.write('You selected:')
+        st.dataframe(DF[(DF['Team']== home_team)|(DF['Team']== away_team)].style.highlight_max(axis=0))
 
-#     if analysis == "Match Score":
-#         pipeline = joblib.load('data/model.joblib')
-#         st.header("Beat the Bookies, pick the winner")
-#         # input from user with arbitary default team name suggestions and game week
-#         stage = st.text_input('Game Week', 1)
-#         home_team = st.text_input('Home Team', 'Arsenal')
-#         away_team = st.text_input('Away Team', 'Man City')
+        odds = pd.DataFrame({'Home Win': round(uniform(1,2),2), 'Away Win': round(uniform(1,10),2), 'Draw': round(uniform(1,5),2) }, index=[0])
+        st.dataframe(odds.style.highlight_max(axis=1))
 
-#         # missing what to put in the prediction t
-#         prediction = pipeline.predict()
-#         st.write(f"Looks like your best bet is {prediction[0]}")
-#         st.markdown("**Place your bets with your favourite Bookmaker**")
-#         st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
+        to_predict = {'home_team': home_team, 'away_team': away_team}
+        to_predict = [to_predict]
+        to_predict = [format_input(team) for team in to_predict]
+        X = pd.DataFrame(to_predict)
+        X = X[COLS]
+        prediction = pipeline.predict(X[COLS])
+        if prediction[0] == 1:
+            st.write(f"Looks like your best bet is the underdog")
+        else:
+            st.write(f"Stear Clear")
+        st.markdown("**Place your bets with your favourite Bookmaker**")
+        st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
+
+    if analysis == "Model Results":
+        pipeline = joblib.load('data/model.joblib')
+        st.header("Beat the Bookies, pick the winner")
+        # input from user with arbitary default team name suggestions and game week
+        stage = st.text_input('Game Week', 1)
+        home_team = st.selectbox('Home Team', TEAMS)
+        away_team = st.selectbox('Away Team', TEAMS)
+
+        # missing what to put in the prediction t
+        prediction = pipeline.predict(X)
+        if prediction[0] == 1:
+            st.write(f"Looks like your best bet is the underdog")
+        else:
+            st.write(f"Stear Clear")
+        st.markdown("**Place your bets with your favourite Bookmaker**")
+        st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
 
 
 if __name__ == "__main__":
-    app.run(host='127.0.0.1', port=8080, debug=True)
-    # main()
+    # app.run(host='127.0.0.1', port=8080, debug=True)
+    main()
