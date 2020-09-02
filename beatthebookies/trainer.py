@@ -48,7 +48,7 @@ MLFLOW_URI = "https://mlflow.lewagon.co/"
 myname="Chris_Westerman"
 EXPERIMENT_NAME = f"[UK][London][{myname}] BeatTheBookies"
 
-mlflow.sklearn.autolog()
+#mlflow.sklearn.autolog()
 
 
 class Trainer(object):
@@ -361,15 +361,15 @@ class Trainer(object):
         except BaseException:
             return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
 
-    #@memoized_property
+    @memoized_property
     def mlflow_run(self):
         return self.mlflow_client.create_run(self.mlflow_experiment_id)
 
     def mlflow_log_param(self, key, value):
-        self.mlflow_client.log_param(self.mlflow_run().info.run_id, key, value)
+        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
 
     def mlflow_log_metric(self, key, value):
-        self.mlflow_client.log_metric(self.mlflow_run().info.run_id, key, value)
+        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
 
 
@@ -383,7 +383,7 @@ if __name__ == '__main__':
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
-    models = ['KNNClassifier']
+    models = ['XGBClassifier']
     balancers = ['SMOTE', 'RandomUnderSampler']
     for mod in models:
         for bal in balancers:
