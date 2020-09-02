@@ -77,19 +77,19 @@ class Trainer(object):
             self.X_train, self.y_train = self.balancing(self.X, self.y)
 
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
-        self.log_kwargs_params()
+        # self.log_kwargs_params()
         # self.model_params = None
 
-    def log_kwargs_params(self):
-          if self.mlflow:
-                self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'))
-                self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False))
-                self.mlflow_log_param('bet', self.kwargs.get('bet', 10))
+    # def log_kwargs_params(self):
+    #       if self.mlflow:
+    #             self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'))
+    #             self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False))
+    #             self.mlflow_log_param('bet', self.kwargs.get('bet', 10))
 
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
-        self.mlflow_log_param("model", estimator)
+        # self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         # elif estimator == 'Linear':
         #     model = LinearRegression()
@@ -250,6 +250,8 @@ class Trainer(object):
         """
         # Here to apply ramdom search to pipeline, need to follow naming "rgs__paramname"
 
+        #mlflow.sklearn.autolog()
+
         params = {"rgs__" + k: v for k, v in self.model_params.items()}
         self.pipeline = RandomizedSearchCV(estimator=self.pipeline, param_distributions=params,
                                            n_iter=10,
@@ -271,12 +273,12 @@ class Trainer(object):
             self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
                         rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
         else:
-            self.pipeline.fit(self.X_train, self.y_train)
-            #pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
-            #best_estimator = pipelinefit.best_estimator_
-            #print(best_estimator)
-            #self.mlflow_log_param("best_estimator",best_estimator)
-            #return pipelinefit
+            #self.pipeline.fit(self.X_train, self.y_train)
+            pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
+            best_estimator = pipelinefit.best_estimator_
+            print(best_estimator)
+            self.mlflow_log_param("best_estimator",best_estimator)
+            return pipelinefit
 
 
 
@@ -320,21 +322,28 @@ class Trainer(object):
             positives = y_test_pred.sum()
 
         # self.mlflow_log_metric("best_estimator",best_estimator)
-        self.mlflow_log_metric("val_f1",val_scores[1])
-        self.mlflow_log_metric("val_accuracy",val_scores[0])
-        self.mlflow_log_metric("val_recall",val_scores[2])
-        self.mlflow_log_metric("val_f1",val_scores[3])
-        self.mlflow_log_metric('val_picked', val_positives)
-        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
-        self.mlflow_log_metric('val_model_profits', val_model_profit)
+        run_id = self.mlflow_run().info.run_id
+        self.mlflow_log_param("model", estimator,run_id)
+        self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'),run_id)
+        self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False),run_id)
+        self.mlflow_log_param('bet', self.kwargs.get('bet', 10),run_id)
 
 
-        self.mlflow_log_metric('test_picked', positives)
-        self.mlflow_log_metric("test_precision",scores[1])
-        self.mlflow_log_metric("test_accuracy",scores[0])
-        self.mlflow_log_metric("test_recall",scores[2])
-        self.mlflow_log_metric("profit_model",season_profit)
-        self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        self.mlflow_log_metric("val_f1",val_scores[1],run_id)
+        self.mlflow_log_metric("val_accuracy",val_scores[0],run_id)
+        self.mlflow_log_metric("val_recall",val_scores[2],run_id)
+        self.mlflow_log_metric("val_f1",val_scores[3],run_id)
+        self.mlflow_log_metric('val_picked', val_positives,run_id)
+        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total,run_id)
+        self.mlflow_log_metric('val_model_profits', val_model_profit,run_id)
+
+
+        self.mlflow_log_metric('test_picked', positives, run_id)
+        self.mlflow_log_metric("test_precision",scores[1],run_id)
+        self.mlflow_log_metric("test_accuracy",scores[0],run_id)
+        self.mlflow_log_metric("test_recall",scores[2],run_id)
+        self.mlflow_log_metric("profit_model",season_profit,run_id)
+        self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
         # self.mlflow_log_metric("prof_home", home_profit_total)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
@@ -361,15 +370,15 @@ class Trainer(object):
         except BaseException:
             return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
 
-    @memoized_property
+    #@memoized_property
     def mlflow_run(self):
         return self.mlflow_client.create_run(self.mlflow_experiment_id)
 
-    def mlflow_log_param(self, key, value):
-        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+    def mlflow_log_param(self, key, value, run_id):
+        self.mlflow_client.log_param(run_id, key, value)
 
-    def mlflow_log_metric(self, key, value):
-        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+    def mlflow_log_metric(self, key, value, run_id):
+        self.mlflow_client.log_metric(run_id, key, value)
 
 
 
@@ -390,7 +399,7 @@ if __name__ == '__main__':
             print(mod, bal, ':')
             params = dict(upload=True,
                           local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                          gridsearch=False,
+                          gridsearch=True,
                           split=True,
                           optimize=False,
                           X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
