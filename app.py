@@ -12,36 +12,16 @@ from random import randint, uniform
 
 
 from beatthebookies.gcp import download_model
-from beatthebookies.fifascrape import scrape_new
+from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH
 
 app = Flask(__name__)
 CORS(app)
 
-PATH_TO_MODEL = "model.joblib"
+PATH_TO_MODEL = "beatthebookies/data/model.joblib"
+# PATH_TO_MODEL = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
+FIFA_FILE = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
 
-
-# TEAMS = ['Arsenal ',
-#         'Aston Villa',
-#         'Brighton & Hove Albion',
-#         'Burnley',
-#         'Chelsea',
-#         'Crystal Palace',
-#         'Everton',
-#         'Fulham',
-#         'Leeds United',
-#         'Leicester City',
-#         'Liverpool',
-#         'Manchester City',
-#         'Manchester United',
-#         'Newcastle United ',
-#         'Sheffield United ',
-#         'Southampton ',
-#         'Tottenham Hotspur',
-#         'West Bromwich Albion',
-#         'West Ham United ',
-#         'Wolverhampton Wanderers']
-
-DF = pd.read_csv('beatthebookies/data/fifarank21.csv')
+DF = pd.read_csv(FIFA_FILE)
 TEAMS = DF['Team']
 
 COLS = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
@@ -56,17 +36,16 @@ def format_input(input):
     formated_input = {}
     for col in COLS:
         formated_input[col] = randint(1,20) #float(input[col])
-    # formated_input = {
-    #     'H_ATT': float(input['H_ATT']), 'A_ATT': float(input['A_ATT']), 'H_MID': float(input['H_MID']), 'A_MID': float(input['A_MID']),
-    #     'H_DEF': float(input['H_DEF']), 'A_DEF': float(input['A_DEF']), 'H_OVR': float(input['H_OVR']), 'A_OVR': float(input['A_OVR']),
-    #     'home_t_total_wins': float(input['home_t_total_wins']),'away_t_total_wins': float(input['away_t_total_wins']), 'stage': float(input['stage']),
-    #     'home_t_total_goals': float(input['home_t_total_goals']),'away_t_total_goals': float(input['away_t_total_goals']),
-    #     'home_t_home_goals': float(input['home_t_home_goals']),'home_t_home_goals_against': float(input['home_t_home_goals_against']),
-    #     'away_t_away_goals': float(input['away_t_away_goals']),'away_t_away_goals_against': float(input['away_t_away_goals_against']),
-    #     'home_t_prev_home_matches': float(input['home_t_prev_home_matches']), 'away_t_prev_away_matches': float(input['away_t_prev_away_matches']),
-    #     'home_t_total_shots': float(input['home_t_total_shots']), 'home_t_total_shots_ot': float(input['home_t_total_shots_ot']),
-    #     'away_t_total_shots': float(input['away_t_total_shots']), 'away_t_total_shots_ot': float(input['away_t_total_shots_ot']),
-    #     'home_t_total_goals_against': float(input['home_t_total_goals_against']),'away_t_total_goals_against': float(input['away_t_total_goals_against'])}
+    formated_input['H_ATT'] = float(input['home_team']['ATT'].values[0])
+    formated_input['A_ATT'] = float(input['away_team']['ATT'].values[0])
+    formated_input['H_MID'] = float(input['home_team']['MID'].values[0])
+    formated_input['A_MID'] = float(input['away_team']['MID'].values[0])
+    formated_input['H_DEF'] = float(input['home_team']['DEF'].values[0])
+    formated_input['A_DEF'] = float(input['away_team']['DEF'].values[0])
+    formated_input['H_OVR'] = float(input['home_team']['OVR'].values[0])
+    formated_input['A_OVR'] = float(input['away_team']['OVR'].values[0])
+
+    print(formated_input)
     return formated_input
 
 
@@ -124,32 +103,37 @@ st.markdown("**Beat the Bookies**")
 
 
 def main():
-    analysis = st.sidebar.selectbox("Choose prediction type", ["Underdog Picker", "Model Results"])
+    analysis = st.sidebar.selectbox("Choose prediction type", ["2020/2021", "2019/2020"])
 
-    if analysis == 'Underdog Picker':
-        pipeline = joblib.load('model.joblib')
-        st.header("Beat the Bookies, find the underdog")
+    if analysis == '2020/2021':
+        pipeline = joblib.load(PATH_TO_MODEL)
+        st.header("Beat the Bookies")
         # input from user with arbitary default team name suggestions and game week
         home_team = st.selectbox('Home Team', TEAMS)
         away_team = st.selectbox('Away Team', TEAMS)
-        st.write('You selected:')
-        st.dataframe(DF[(DF['Team']== home_team)|(DF['Team']== away_team)].style.highlight_max(axis=0))
+        if home_team != away_team:
+            st.write('You selected:')
+            home_stats = DF[DF['Team'] == home_team]
+            away_stats = DF[DF['Team'] == away_team]
+            df = pd.concat([home_stats, away_stats], axis=0)
+            st.table(df.drop(columns='League').set_index('Team').style.highlight_max(axis=0))
+            odds = pd.DataFrame({'Home Win': round(uniform(1,2.5),2), 'Away Win': round(uniform(1,10),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
+            st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
 
-        odds = pd.DataFrame({'Home Win': round(uniform(1,2),2), 'Away Win': round(uniform(1,10),2), 'Draw': round(uniform(1,5),2) }, index=[0])
-        st.dataframe(odds.style.highlight_max(axis=1))
-
-        to_predict = {'home_team': home_team, 'away_team': away_team}
-        to_predict = [to_predict]
-        to_predict = [format_input(team) for team in to_predict]
-        X = pd.DataFrame(to_predict)
-        X = X[COLS]
-        prediction = pipeline.predict(X[COLS])
-        if prediction[0] == 1:
-            st.write(f"Looks like your best bet is the underdog")
+            to_predict = {'home_team': home_stats, 'away_team': away_stats}
+            to_predict = [to_predict]
+            to_predict = [format_input(team) for team in to_predict]
+            X = pd.DataFrame(to_predict)
+            X = X[COLS]
+            prediction = pipeline.predict(X[COLS])
+            if prediction[0] == 1:
+                st.header(f"Looks like your best bet is the hometeam")
+            else:
+                st.header(f"Could go either way, stear clear on this one")
+            st.markdown("**Place your bets with your favourite Bookmaker**")
         else:
-            st.write(f"Stear Clear")
-        st.markdown("**Place your bets with your favourite Bookmaker**")
-        st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
+            st.markdown("**Pick an Opponent**")
+            st.markdown("And Remember, please gamble responsibly, for more information visit https://www.begambleaware.org")
 
     if analysis == "Model Results":
         pipeline = joblib.load('data/model.joblib')
@@ -162,9 +146,10 @@ def main():
         # missing what to put in the prediction t
         prediction = pipeline.predict(X)
         if prediction[0] == 1:
-            st.write(f"Looks like your best bet is the underdog")
+            st.write(f"##Looks like your best bet is the underdog##")
         else:
-            st.write(f"Stear Clear")
+            st.write(f"##Stear Clear##")
+
         st.markdown("**Place your bets with your favourite Bookmaker**")
         st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
 
