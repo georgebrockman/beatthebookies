@@ -13,7 +13,7 @@ REQUIRED_PACKAGES = [
 'scikit-learn>=0.22.1',
 'google-cloud-storage==1.26.0',
 'gcsfs==0.6.0',
-'tensorflow>=2.2',
+# 'tensorflow>=2.2',
 'pandas',
 'pytest',
 'coverage',
@@ -24,7 +24,7 @@ REQUIRED_PACKAGES = [
 'twine',
 'mlflow',
 'imbalanced-learn',
-'keras',
+# 'keras',
 'joblib',
 'streamlit']
 

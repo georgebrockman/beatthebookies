@@ -28,13 +28,13 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras import optimizers, regularizers
-from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
-from tensorflow.keras.callbacks import EarlyStopping
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.layers import BatchNormalization
+# from tensorflow import keras
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras import optimizers, regularizers
+# from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
+# from tensorflow.keras.callbacks import EarlyStopping
+# from keras.wrappers.scikit_learn import KerasClassifier
+# from keras.layers import BatchNormalization
 
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
@@ -128,18 +128,18 @@ class Trainer(object):
             model = XGBClassifier()
         elif estimator == "SVC":
             model = SVC(kernel='poly', probability=True)
-        elif estimator == "Sequential":
-            model = Sequential()
-            model.add(Flatten())
-            model.add(BatchNormalization())
-            model.add(Dense(32, activation='relu'))
-            model.add(Dense(32, activation='relu'))
-            model.add(Dense(16, activation='relu'))
-            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu',input_shape=(10000,)))
-            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu'))
-            model.add(Dense(1, activation='sigmoid'))
-            # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
-            model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
+        # elif estimator == "Sequential":
+        #     model = Sequential()
+        #     model.add(Flatten())
+        #     model.add(BatchNormalization())
+        #     model.add(Dense(32, activation='relu'))
+        #     model.add(Dense(32, activation='relu'))
+        #     model.add(Dense(16, activation='relu'))
+        #     model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu',input_shape=(10000,)))
+        #     model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu'))
+        #     model.add(Dense(1, activation='sigmoid'))
+        #     # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
+        #     model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
 
         else:
             model = LogisticRegression()
@@ -219,11 +219,11 @@ class Trainer(object):
         tic = time.time()
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
-        if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
-            self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
-                        rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
-        else:
-            self.pipeline.fit(self.X_train, self.y_train)
+        # if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
+        #     self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
+        #                 rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
+        # else:
+        self.pipeline.fit(self.X_train, self.y_train)
 
 
     def evaluate(self):
