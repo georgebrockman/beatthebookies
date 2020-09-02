@@ -17,7 +17,6 @@ app = Flask(__name__)
 CORS(app)
 
 class Toc:
-
     def __init__(self):
         self._items = []
         self._placeholder = None
@@ -82,13 +81,13 @@ def format_input(input):
                 formated_input[k] = v[0]
 
     if 'away_stats' in input.keys():
-        s_dict = input['home_stats'].to_dict(orient='list')
+        s_dict = input['away_stats'].to_dict(orient='list')
         for k,v in s_dict.items():
             if k in COLS:
                 formated_input[k] = v[0]
 
     if 'game_stats' in input.keys():
-        s_dict = input['home_stats'].to_dict(orient='list')
+        s_dict = input['game_stats'].to_dict(orient='list')
         for k,v in s_dict.items():
             if k in COLS:
                 formated_input[k] = v[0]
@@ -196,10 +195,7 @@ def main():
         for num in range(10):
             game = matchups[num:num+1]
             ht = game.home_team.values[0]
-            # st.header(f'{num + 1}. {ht} Match')
             toc.header(f'{num + 1}. {ht} Match')
-            # home_team_match = st.selectbox('Home Team', [team for team in matchups['home_team']])
-            # game = matchups[matchups['home_team'] == home_team_match]
             home_ranks = game[['home_team', 'H_ATT', 'H_MID', 'H_DEF', 'H_OVR']]
             home_ranks.columns = ['Team', 'ATT', 'MID', 'DEF', 'OVR']
             away_ranks = game[['away_team', 'A_ATT', 'A_MID', 'A_DEF', 'A_OVR']]
@@ -237,8 +233,6 @@ def main():
                 if (odds['Results'].values[0] == 'H'):
                     profit = round((int(bet) * game.WHH.values[0]) - bet, 2)
                     profits.append(profit)
-                    # st.write(f'Collect your £{round((bet * game['WHH']),2)}')
-                    # st.write(f'Collect your £{round((bet * game.WHH.values[0],2))}')
                     st.write(f'Collect your £{profit}')
                 else:
                     profit = -bet
