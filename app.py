@@ -148,7 +148,7 @@ def main():
             if prediction[0] == 1:
                 st.header(f"Looks like your best bet is the hometeam")
             else:
-                st.header(f"Could go either way, stear clear on this one")
+                st.header(f"Could go either way, steer clear on this one")
             st.markdown("**Place your bets with your favourite Bookmaker**")
         else:
             st.markdown("**Pick an Opponent**")
