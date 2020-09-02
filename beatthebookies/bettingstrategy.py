@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import sqlite3
 
 
 def simple_betting_profits(df, bet=10):

@@ -17,3 +17,9 @@ mlflow
 imbalanced-learn
 joblib
 streamlit
+flask
+flask_cors
+termcolor
+matplotlib
+seaborn
+

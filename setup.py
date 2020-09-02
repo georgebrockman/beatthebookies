@@ -26,7 +26,12 @@ REQUIRED_PACKAGES = [
 'imbalanced-learn',
 # 'keras',
 'joblib',
-'streamlit']
+'streamlit',
+'flask',
+'flask_cors',
+'matplotlib',
+'seaborn',
+'termcolor']
 
 setup(name='beatthebookies',
       # install_requires=requirements,

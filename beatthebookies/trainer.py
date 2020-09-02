@@ -4,7 +4,6 @@ import time
 import pandas as pd
 import numpy as np
 import joblib
-import tensorflow
 
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
@@ -29,6 +28,7 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 
+# import tensorflow
 # from tensorflow import keras
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras import optimizers, regularizers
@@ -276,7 +276,7 @@ class Trainer(object):
     @simple_time_tracker
     def train(self):
         tic = time.time()
-        #es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        # es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
         if self.gridsearch:
             self.add_gridsearch()
@@ -375,7 +375,7 @@ class Trainer(object):
     def save_model(self, upload=True, auto_remove=True):
         """Save the model into a .joblib and upload it on Google Storage /models folder
         HINTS : use sklearn.joblib (or jbolib) libraries and google-cloud-storage"""
-        joblib.dump(self.pipeline, 'beatthebookies/data/model.joblib')
+        joblib.dump(self.pipeline, 'model.joblib')
         print(colored("model.joblib saved locally", "green"))
 
         if not self.local:
