@@ -3,10 +3,15 @@ import warnings
 import time
 import pandas as pd
 import numpy as np
+import joblib
+import tensorflow
+
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct, HomeAdv
 from beatthebookies.bettingstrategy import compute_profit
+from beatthebookies.gcp import storage_upload
+from beatthebookies.params import MODEL_VERSION
 
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -19,8 +24,11 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from xgboost import XGBRegressor, XGBClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
+from sklearn.compose import ColumnTransformer
 
-import tensorflow
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import optimizers, regularizers
@@ -28,18 +36,16 @@ from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.layers.recurrent import LSTM
 from keras.wrappers.scikit_learn import KerasClassifier
+from keras.layers import BatchNormalization
 
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
-from sklearn.compose import ColumnTransformer
-
-from tempfile import mkdtemp
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
-from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
 
-from keras.layers import BatchNormalization
+from tempfile import mkdtemp
+from collections import Counter
+from termcolor import colored
+
+
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -56,16 +62,17 @@ class Trainer(object):
     ESTIMATOR = 'logistic'
     rs = RandomUnderSampler(random_state=0)
 
-    def __init__(self, X, y, **kwargs):
-        # mlflow.sklearn.autolog()
+    def __init__(self, X, y, X_test=None, y_test=None, **kwargs):
         self.pipeline = None
         self.kwargs = kwargs
         self.split = self.kwargs.get("split", True)
         self.mlflow = kwargs.get("mlflow", False)  # if True log info to nlflow
+        self.local = kwargs.get("local", True)
+        self.grid = kwargs.get("gridsearch", False)
         self.X = X
         self.y = y
-        self.X_test = self.kwargs.get('X_test', None)
-        self.y_test = self.kwargs.get('y_test', None)
+        self.X_test = X_test
+        self.y_test = y_test
         self.y_type = self.kwargs.get('y_type', 'single')
         self.bet = self.kwargs.get('bet', 10)
         self.gridsearch = self.kwargs.get("gridsearch", False)
@@ -116,6 +123,8 @@ class Trainer(object):
             self.model_params = {'C': np.arange(0.001,1000)}
             #model = LogisticRegression(C=435.0009999999999)
             model = LogisticRegression()
+        elif estimator == 'LDA':
+            model = LinearDiscriminantAnalysis()
         elif estimator == 'RandomForestClassifier':
             self.model_params = {'bootstrap': [True, False],
                                  'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
@@ -151,7 +160,7 @@ class Trainer(object):
                                   'gamma': [0.01,0.001],
                                   'kernel': ['rbf', 'poly', 'sigmoid']}
             # model = SVC(C=0.1,gamma=0.01)
-            model = SVC()
+            model = SVC(probability=True)
         elif estimator == "Sequential":
             model = Sequential()
             model.add(Flatten())
@@ -287,11 +296,11 @@ class Trainer(object):
             raise ("Cannot evaluate an empty pipeline")
 
         if self.split:
-            y_val_pred = self.pipeline.predict(self.X_val)
-            # y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
+            y_val_pred = self.pipeline.predict_proba(self.X_val)
+            y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
         # y_test_pred = self.pipeline.predict(self.X_test)
-        y_test_pred = self.pipeline.predict(self.X_test) #.reshape((380,))
-        # y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
+        y_test_pred = self.pipeline.predict_proba(self.X_test) #.reshape((380,))
+        y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
 
         def predict_threshold(x):
             if x['pct'] >= self.kwargs.get('threshold', 0.5):
@@ -302,20 +311,20 @@ class Trainer(object):
             convert = pd.DataFrame({'pct': y_test_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             positives = convert.predict.sum()
-            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
             scores = compute_overall_scores(convert.predict, self.y_test)
             # val
             convert = pd.DataFrame({'pct': y_val_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             val_positives = convert.predict.sum()
-            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
             val_scores = compute_overall_scores(convert.predict, self.y_val)
 
         if self.y_type == 'label':
             val_scores = compute_overall_scores(y_val_pred, self.y_val)
             scores = compute_overall_scores(y_test_pred, self.y_test)
-            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
-            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
+            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
+            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
             val_positives = y_val_pred.sum()
             positives = y_test_pred.sum()
 
@@ -325,7 +334,7 @@ class Trainer(object):
         self.mlflow_log_metric("val_recall",val_scores[2])
         self.mlflow_log_metric("val_f1",val_scores[3])
         self.mlflow_log_metric('val_picked', val_positives)
-        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
+        # self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
         self.mlflow_log_metric('val_model_profits', val_model_profit)
 
 
@@ -334,20 +343,28 @@ class Trainer(object):
         self.mlflow_log_metric("test_accuracy",scores[0])
         self.mlflow_log_metric("test_recall",scores[2])
         self.mlflow_log_metric("profit_model",season_profit)
-        self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        # self.mlflow_log_metric("prof_underdogs", dog_profit_total)
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        # self.mlflow_log_metric("prof_home", home_profit_total)
+        self.mlflow_log_metric("prof_home", home_profit_total)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
         # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
-        # self.mlflow_log_metric("prof_v_home", home_profit_v_total)
+        self.mlflow_log_metric("val_home_profit", val_home_profit_total)
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
         return season_profit
 
+    def save_model(self, upload=True, auto_remove=True):
+        """Save the model into a .joblib and upload it on Google Storage /models folder
+        HINTS : use sklearn.joblib (or jbolib) libraries and google-cloud-storage"""
+        joblib.dump(self.pipeline, 'beatthebookies/data/model.joblib')
+        print(colored("model.joblib saved locally", "green"))
+
+        if not self.local:
+            storage_upload(model_version=MODEL_VERSION)
 
     @memoized_property
     def mlflow_client(self):
@@ -376,38 +393,56 @@ class Trainer(object):
 if __name__ == '__main__':
     warnings.simplefilter(action='ignore', category=[FutureWarning,DeprecationWarning])
 
-    experiment = "BeatTheBookies-M"
+    cols = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
+        'home_t_total_wins','away_t_total_wins', 'stage','home_t_total_goals','away_t_total_goals',
+        'home_t_home_goals','home_t_home_goals_against','away_t_away_goals','away_t_away_goals_against',
+        'home_t_prev_home_matches', 'away_t_prev_away_matches', 'home_t_total_shots', 'home_t_total_shots_ot',
+        'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
+        'home_w', 'away_w', 'draw', 'winning_odds']
+
+    experiment = "BeatTheBookies"
     df, test_df = get_data(test_season='2019/2020')
     X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    y = df['under_win']
-    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC']
+    y = df['home_w']
+    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
     models = ['XGBClassifier']
     balancers = ['SMOTE', 'RandomUnderSampler']
-    for mod in models:
-        for bal in balancers:
-            print(mod, bal, ':')
-            params = dict(upload=True,
-                          local=False,  # set to False to get data from GCP (Storage or BigQuery)
-                          gridsearch=False,
-                          split=True,
-                          optimize=False,
-                          X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-                          y_test = test_df['under_win'],
-                          y_type='label',
-                          balance=bal,
-                          bet = 10,
-                          threshold=0.5,
-                          estimator=mod,
-                          mlflow=True,  # set to True to log params to mlflow
-                          experiment_name=experiment,
-                          pipeline_memory=None,
-                          feateng=['fifadiff','windiff','goaldiff','homeadv','shototpct','goalagdiff'],
-                          n_jobs=-1)
-            t = Trainer(X=X, y=y, **params)
-            t.train()
-            t.evaluate()
+
+    # for mod in models:
+    #     for bal in balancers:
+    #         print(mod, bal, ':')
+    params = dict(upload=True,
+                  test_season='2019/2020',
+                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  gridsearch=False,
+                  split=True,
+                  y_type='pct',
+                  balance='SMOTE',
+                  bet = 10,
+                  threshold=0.5,
+                  estimator='SVC',
+                  mlflow=True,  # set to True to log params to mlflow
+                  experiment_name=experiment,
+                  pipeline_memory=None,
+                  feateng=None,
+                  n_jobs=-1)
+    df, test_df = get_data(**params)
+    # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X = df[cols]
+    y = df['home_w']
+    # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X_test = test_df[cols]
+    y_test = test_df['under_win']
+    t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
+    print(colored("############  Training model   ############", "red"))
+    t.train()
+    print(colored("############  Evaluating model ############", "blue"))
+    t.evaluate()
+    print(colored("############   Saving model    ############", "green"))
+    t.save_model()
+
     # params = dict(upload=True,
     #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
     #               gridsearch=False,
@@ -426,7 +461,11 @@ if __name__ == '__main__':
     #               feateng=None,
     # #               n_jobs=-1)
     # t = Trainer(X=X, y=y, **params)
+    # print(colored("############  Training model   ############", "red"))
     # t.train()
+    # print(colored("############  Evaluating model ############", "blue"))
     # t.evaluate()
+    # print(colored("############   Saving model    ############", "green"))
+    # t.save_model()
 
 
