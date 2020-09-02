@@ -17,7 +17,7 @@ from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH
 app = Flask(__name__)
 CORS(app)
 
-PATH_TO_MODEL = "beatthebookies/data/model.joblib"
+PATH_TO_MODEL = "model.joblib"
 # PATH_TO_MODEL = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
 FIFA_FILE = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
 
@@ -136,7 +136,7 @@ def main():
             st.markdown("And Remember, please gamble responsibly, for more information visit https://www.begambleaware.org")
 
     if analysis == "Model Results":
-        pipeline = joblib.load('data/model.joblib')
+        pipeline = joblib.load('model.joblib')
         st.header("Beat the Bookies, pick the winner")
         # input from user with arbitary default team name suggestions and game week
         stage = st.text_input('Game Week', 1)

@@ -217,7 +217,7 @@ class Trainer(object):
     @simple_time_tracker
     def train(self):
         tic = time.time()
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        # es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
         # if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
         #     self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
@@ -295,7 +295,7 @@ class Trainer(object):
     def save_model(self, upload=True, auto_remove=True):
         """Save the model into a .joblib and upload it on Google Storage /models folder
         HINTS : use sklearn.joblib (or jbolib) libraries and google-cloud-storage"""
-        joblib.dump(self.pipeline, 'beatthebookies/data/model.joblib')
+        joblib.dump(self.pipeline, 'model.joblib')
         print(colored("model.joblib saved locally", "green"))
 
         if not self.local:
