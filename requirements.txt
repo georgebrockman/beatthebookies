@@ -17,3 +17,5 @@ mlflow
 imbalanced-learn
 joblib
 streamlit
+flask
+flask_cors
