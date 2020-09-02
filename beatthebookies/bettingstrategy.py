@@ -49,7 +49,54 @@ def correct_bet(x):
         return x['bet']
     return 0
 
+def correct_kelly(x):
+    if x['act'] == 1:
+        return abs(x['bet'] * x['winning_odds']) - x['bet']
+    return - x['bet']
 
+def compute_stake(x):
+    stake_pct = ((x['B'] * x['prob_succ']) -(1 - x['prob_succ'])) / x['B']
+    if stake_pct <= 0:
+        return 0
+    return stake_pct
+
+def optimizeddog(df, y_pred, y_true, bankroll=100):
+    """ This function determines the optimum split of your betting bankroll for each Premier League Game Week """
+    under_odd = df[['WHH','WHD','WHA']].max()
+    B = under_odd - 1
+    combined_dog = pd.DataFrame({'odds': odds, 'B': B, 'prob_succ': y_pred})
+    combined_dog['stake_pct'] = combined_dog.apply(lambda x: compute_stake(x), axis=1)
+    combined_Dog['stake'] = combined_dog.stake_pct * bankroll
+    return combined_dog.stake
+
+def optimizeddogprofit(df, y_pred, y_true, bankroll=10):
+    stake = optimizeddog(df, y_pred, y_true, bankroll=bankroll)
+    # create the combined data frame
+    combined_dog_p = pd.DataFrame({'pred': y_pred, 'act': y_true, 'winning_odds': df[['WHH','WHD','WHA']].max(), 'bet': stake})
+    combined_dog_p['profit'] = combined_dog_p.apply(lambda x: correct_kelly(x) , axis=1)
+    kdog_profit = combined_dog_p.profit.sum()
+    print("kelly dog", kdog_profit)
+    return kdog_profit # rename
+
+
+def optimizedhomebet(df, y_pred, y_true, bankroll=10): # bankroll for the game week
+    """ This function determines the optimum split of your betting bankroll for each Premier League Game Week """
+    odds = df['WHH']
+    B = odds - 1
+    # prob_succ = y_pred
+    combined = pd.DataFrame({'odds': odds, 'B': B, 'prob_succ': y_pred})
+    combined['stake_pct'] = combined.apply(lambda x: compute_stake(x), axis=1)
+    combined['stake'] = combined.stake_pct * bankroll
+    return combined.stake
+
+def optimizedhomeprofit(df, y_pred, y_true, bankroll=10):
+    stake = optimizedhomebet(df, y_pred, y_true, bankroll=bankroll)
+    # create the combined data frame
+    combined_p = pd.DataFrame({'pred': y_pred, 'act': y_true, 'winning_odds': df['WHH'], 'bet': stake})
+    combined_p['profit'] = combined_p.apply(lambda x: correct_kelly(x) , axis=1)
+    k_prof = combined_p.profit.sum()
+    print("kelly home", k_prof )
+    return k_prof  # rename
 
 def compute_profit(df,y_pred,y_true,bet):
     fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total = simple_betting_profits(df.copy(), bet=bet)
@@ -58,6 +105,7 @@ def compute_profit(df,y_pred,y_true,bet):
     combined['profit'] = combined.apply(lambda x: correct_bet(x) , axis=1)
     btb_profit_total = combined['profit'].sum()
     combined = combined.sort_values(by='profit', ascending=False)
+    print("btb", btb_profit_total)
     return btb_profit_total, fav_profit_total, dog_profit_total, home_profit_total, draw_profit_total, away_profit_total
 
 
