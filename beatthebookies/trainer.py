@@ -222,7 +222,7 @@ class Trainer(object):
 
         if balance == "SMOTE":
           # Create new samples without making any disticntion between easy and hard samples to be classified using K-nearest neighbor
-          X_train, y_train = SMOTE().fit_resample(X_train, y_train)
+          X_train, y_train = SMOTE(random_state=15).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         elif balance == "ADASYN":
@@ -453,8 +453,8 @@ if __name__ == '__main__':
     t.train()
     print(colored("############  Evaluating model ############", "blue"))
     t.evaluate()
-    print(colored("############   Saving model    ############", "green"))
-    t.save_model()
+    # print(colored("############   Saving model    ############", "green"))
+    # t.save_model()
 
     # params = dict(upload=True,
     #               local=False,  # set to False to get data from GCP (Storage or BigQuery)

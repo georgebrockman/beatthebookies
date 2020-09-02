@@ -16,6 +16,35 @@ from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH, MODEL_N
 app = Flask(__name__)
 CORS(app)
 
+class Toc:
+
+    def __init__(self):
+        self._items = []
+        self._placeholder = None
+
+    def title(self, text):
+        self._markdown(text, "h1")
+
+    def header(self, text):
+        self._markdown(text, "h2", " " * 2)
+
+    def subheader(self, text):
+        self._markdown(text, "h3", " " * 4)
+
+    def placeholder(self, sidebar=False):
+        self._placeholder = st.sidebar.empty() if sidebar else st.empty()
+
+    def generate(self):
+        if self._placeholder:
+            self._placeholder.markdown("\n".join(self._items), unsafe_allow_html=True)
+
+    def _markdown(self, text, level, space=""):
+        key = "".join(filter(str.isalnum, text)).lower()
+
+        st.markdown(f"<{level} id='{key}'>{text}</{level}>", unsafe_allow_html=True)
+        self._items.append(f"{space}* <a href='#{key}'>{text}</a>")
+
+
 PATH_TO_MODEL = "model.joblib"
 FIFA_FILE = 'fifarank21.csv'
 SEASON_FILE = '2019_2020.csv'
@@ -64,12 +93,8 @@ def format_input(input):
             if k in COLS:
                 formated_input[k] = v[0]
 
-    print(len(formated_input))
     return formated_input
 
-
-# pipeline_def = {'pipeline': joblib.load(PATH_TO_MODEL),
-#                 'from_gcp': False}
 
 
 @app.route('/')
@@ -138,7 +163,6 @@ def main():
             st.table(df.drop(columns='League').set_index('Team').style.highlight_max(axis=0))
             odds = pd.DataFrame({'Home Win': round(uniform(1,2.5),2), 'Away Win': round(uniform(1,10),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
             st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
-
             to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks}
             to_predict = [to_predict]
             to_predict = [format_input(team) for team in to_predict]
@@ -156,64 +180,90 @@ def main():
             st.markdown("And Remember, please gamble responsibly, for more information visit https://www.begambleaware.org")
 
     if analysis == "2019/2020":
+
         pipeline = joblib.load('model.joblib')
-        st.header("See Our Results")
         # input from user with arbitary default team name suggestions and game week
+        st.markdown("""<a id="top"></a>""",unsafe_allow_html=True)
         stage = st.selectbox('Game Week', range(1,39))
+        bet = st.number_input('Max Bet Per Game')
+        toc = Toc()
+        href = f"""<a href="#top"> Back to top </a>"""
+        st.title("This Weeks Games")
+        toc.placeholder()
+
         matchups = SEASON_DF[SEASON_DF['stage'] == stage]
-
-        home_team_match = st.selectbox('Home Team', [team for team in matchups['home_team']])
-
-        game = matchups[matchups['home_team'] == home_team_match]
-        home_ranks = game[['home_team', 'H_ATT', 'H_MID', 'H_DEF', 'H_OVR']]
-        home_ranks.columns = ['Team', 'ATT', 'MID', 'DEF', 'OVR']
-        away_ranks = game[['away_team', 'A_ATT', 'A_MID', 'A_DEF', 'A_OVR']]
-        away_ranks.columns = ['Team', 'ATT', 'MID', 'DEF', 'OVR']
-        df = pd.concat([home_ranks, away_ranks], axis=0)
-        st.write('**Fifa Rankings**')
-        st.table(df.set_index('Team').style.highlight_max(axis=0))
-        home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
-                          'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against',]]
-        away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
-                          'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
-        away_stats['Team'] = game['away_team'].copy()
-        home_stats['Team'] = game['home_team'].copy()
-        home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
-        away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
-        cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
-        home_show.columns = cols
-        away_show.columns = cols
-        st.write('**Team Stats**')
-        stat_df = pd.concat([home_show, away_show], axis=0)
-        st.table(stat_df.set_index('Team'))
-        odds = game[['WHH', 'WHA', 'WHD', 'FTR']]
-        odds.columns = ['Home Win', 'Away Win', 'Draw', 'Results']
-        st.write('**Game Odds**')
-        st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
-        game_stats = game[['WHH','WHA', 'WHD', 'stage']]
-        to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks, 'home_stats': home_stats, 'away_stats': away_stats, 'game_stats': game_stats}
-        to_predict = [to_predict]
-        to_predict = [format_input(team) for team in to_predict]
-        X = pd.DataFrame(to_predict)
-        X = X[COLS]
-        prediction = pipeline.predict(X[COLS])
-        if prediction[0] == 1:
-            st.header(f"Our best bet is on the hometeam")
-            if (odds['Results'].values[0] == 'H'):
-                st.write('Collect your Winnings')
+        profits = []
+        for num in range(10):
+            game = matchups[num:num+1]
+            ht = game.home_team.values[0]
+            # st.header(f'{num + 1}. {ht} Match')
+            toc.header(f'{num + 1}. {ht} Match')
+            # home_team_match = st.selectbox('Home Team', [team for team in matchups['home_team']])
+            # game = matchups[matchups['home_team'] == home_team_match]
+            home_ranks = game[['home_team', 'H_ATT', 'H_MID', 'H_DEF', 'H_OVR']]
+            home_ranks.columns = ['Team', 'ATT', 'MID', 'DEF', 'OVR']
+            away_ranks = game[['away_team', 'A_ATT', 'A_MID', 'A_DEF', 'A_OVR']]
+            away_ranks.columns = ['Team', 'ATT', 'MID', 'DEF', 'OVR']
+            df = pd.concat([home_ranks, away_ranks], axis=0)
+            st.write('**Fifa Rankings**')
+            st.table(df.set_index('Team').style.highlight_max(axis=0))
+            home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
+                              'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against',]]
+            away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
+                              'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
+            away_stats['Team'] = game['away_team'].copy()
+            home_stats['Team'] = game['home_team'].copy()
+            home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
+            away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
+            cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
+            home_show.columns = cols
+            away_show.columns = cols
+            st.write('**Team Stats**')
+            stat_df = pd.concat([home_show, away_show], axis=0)
+            st.table(stat_df.set_index('Team'))
+            odds = game[['WHH', 'WHA', 'WHD', 'FTR']]
+            odds.columns = ['Home Win', 'Away Win', 'Draw', 'Results']
+            st.write('**Game Odds**')
+            st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
+            game_stats = game[['WHH','WHA', 'WHD', 'stage']]
+            to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks, 'home_stats': home_stats, 'away_stats': away_stats, 'game_stats': game_stats}
+            to_predict = [to_predict]
+            to_predict = [format_input(team) for team in to_predict]
+            X = pd.DataFrame(to_predict)
+            X = X[COLS]
+            prediction = pipeline.predict(X[COLS])
+            if prediction[0] == 1:
+                st.subheader(f"Your best bet is on the hometeam")
+                if (odds['Results'].values[0] == 'H'):
+                    profit = round((int(bet) * game.WHH.values[0]) - bet, 2)
+                    profits.append(profit)
+                    # st.write(f'Collect your £{round((bet * game['WHH']),2)}')
+                    # st.write(f'Collect your £{round((bet * game.WHH.values[0],2))}')
+                    st.write(f'Collect your £{profit}')
+                else:
+                    profit = -bet
+                    profits.append(profit)
+                    st.write("Nobody bats 1000")
             else:
-                st.write("Nobody bats 1000")
-        else:
-            st.header(f"Could go either way, steer clear on this one")
-            if (odds['Results'].values[0] == 'H'):
-                st.write('Well, better safe than sorry')
-            else:
-                st.write("Nailed it")
+                st.subheader(f"We think it could go either way, steer clear on this one")
+                if (odds['Results'].values[0] == 'H'):
+                    st.write('Well, better safe than sorry')
+                else:
+                    st.write("Nailed it")
+            st.markdown(href,unsafe_allow_html=True)
+            st.write('___')
 
 
 
-        st.markdown("**Place your bets with your favourite Bookmaker**")
+        weekly_profit = round(sum(profits),2)
+        toc.header(f'Weekly Results')
+        st.write(f'**Total winnings for the week were £{weekly_profit}**')
+        if weekly_profit > 0:
+            st.balloons()
+
         st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
+        st.markdown(href,unsafe_allow_html=True)
+        toc.generate()
 
 
 if __name__ == "__main__":
