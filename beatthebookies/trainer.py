@@ -360,13 +360,13 @@ class Trainer(object):
         self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
 
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        self.mlflow_log_metric("prof_home", home_profit_total,run_id)
+        # self.mlflow_log_metric("prof_home", home_profit_total,run_id)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
         # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
-        self.mlflow_log_metric("val_home_profit", val_home_profit_total,run_id)
+        # self.mlflow_log_metric("val_home_profit", val_home_profit_total,run_id)
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
