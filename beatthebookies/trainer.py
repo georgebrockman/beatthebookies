@@ -9,7 +9,7 @@ import tensorflow
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct, HomeAdv
-from beatthebookies.bettingstrategy import compute_profit
+from beatthebookies.bettingstrategy import compute_profit, optimizedhomeprofit
 from beatthebookies.gcp import storage_upload
 from beatthebookies.params import MODEL_VERSION
 
@@ -159,8 +159,9 @@ class Trainer(object):
             self.model_params = {'C': [0.1,1, 10],
                                   'gamma': [0.01,0.001],
                                   'kernel': ['rbf', 'poly', 'sigmoid']}
-            #model = SVC(C=0.1,gamma=0.01,probability=True)
+            #model = SVC(kernel='poly', C=0.1,gamma=0.01,probability=True)
             model = SVC(probability=True)
+
         elif estimator == "Sequential":
             model = Sequential()
             model.add(Flatten())
@@ -313,13 +314,17 @@ class Trainer(object):
             convert = pd.DataFrame({'pct': y_test_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             positives = convert.predict.sum()
-            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            # stake = optimizedhomebet(self.X_test, convert, self.y_test, bankroll=100)
+            # profit = optimizedhomeprofit(self.X_test, convert['pct'], self.y_test, bankroll=100):
+            kelly_criterion = optimizedhomeprofit(self.X_test, convert.pct.to_numpy(), self.y_test, bankroll=10)
+            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
             scores = compute_overall_scores(convert.predict, self.y_test)
             # val
             convert = pd.DataFrame({'pct': y_val_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             val_positives = convert.predict.sum()
-            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            kelly_criterion = optimizedhomeprofit(self.X_val, convert.pct.to_numpy(), self.y_val, bankroll=10)
+            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
             val_scores = compute_overall_scores(convert.predict, self.y_val)
 
         if self.y_type == 'label':
@@ -410,10 +415,8 @@ if __name__ == '__main__':
         'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
         'home_w', 'away_w', 'draw', 'winning_odds']
 
+
     experiment = "BeatTheBookies-M"
-    df, test_df = get_data(test_season='2019/2020')
-    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    y = df['home_w']
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
@@ -444,7 +447,7 @@ if __name__ == '__main__':
     y = df['home_w']
     # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X_test = test_df[cols]
-    y_test = test_df['under_win']
+    y_test = test_df['home_w']
     t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
     print(colored("############  Training model   ############", "red"))
     t.train()
