@@ -29,14 +29,13 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras import optimizers, regularizers
-from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.python.keras.layers.recurrent import LSTM
-from keras.wrappers.scikit_learn import KerasClassifier
-from keras.layers import BatchNormalization
+# from tensorflow import keras
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras import optimizers, regularizers
+# from tensorflow.keras.layers import Embedding, Conv1D, Dense, Flatten, SimpleRNN, Conv2D, MaxPooling1D,Dropout
+# from tensorflow.keras.callbacks import EarlyStopping
+# from keras.wrappers.scikit_learn import KerasClassifier
+# from keras.layers import BatchNormalization
 
 from imblearn.over_sampling import RandomOverSampler, SMOTE, ADASYN
 from imblearn.under_sampling import RandomUnderSampler, ClusterCentroids, NearMiss
@@ -173,6 +172,7 @@ class Trainer(object):
             model.add(Dense(1, activation='sigmoid'))
             # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
             model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
+
         else:
             self.model_params = {'C': [0.001,0.01,0.1,1,10,100,1000]}
             model = LogisticRegression()
@@ -286,7 +286,6 @@ class Trainer(object):
             #print(best_estimator)
             #self.mlflow_log_param("best_estimator",best_estimator)
             #return pipelinefit
-
 
 
     def evaluate(self):
