@@ -24,7 +24,8 @@ class FifaDifferentials(BaseEstimator, TransformerMixin):
         X['H_ATT_A'] = X['H_ATT'] - X['A_DEF']
         X['H_DEF_A'] = X['H_DEF'] - X['A_ATT']
 
-        return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_ATT_A', 'H_DEF_A']]
+        #return X[['H_ATT_D', 'H_MID_D', 'H_DEF_D', 'H_OVR_D', 'H_ATT_A', 'H_DEF_A']]
+        return X[['H_MID_D', 'H_OVR_D', 'H_ATT_A', 'H_DEF_A']]
 
 
 class WeeklyGoalAverages(BaseEstimator, TransformerMixin):
@@ -104,10 +105,14 @@ class HomeAdv(BaseEstimator, TransformerMixin):
         X['home_t_avg_h_g_a'] = X['home_t_home_goals_against'] / (X['home_t_prev_home_matches'])
         X['away_t_avg_a_g_a'] = X['away_t_away_goals_against'] / (X['away_t_prev_away_matches'])
         X['away_t_avg_a_g'] = X['away_t_away_goals'] / (X['away_t_prev_away_matches'])
-        # dividing by zero returns infinite and NaN values
         X.replace([np.inf, np.nan], 0, inplace=True)
+        X['h_diff_hg'] = X['home_t_avg_h_g'] - X['away_t_avg_a_g_a']
+        X['h_diff_hg_a'] = X['home_t_avg_h_g_a'] - X['away_t_avg_a_g']
+        # dividing by zero returns infinite and NaN values
 
-        return X[['home_t_avg_h_g', 'home_t_avg_h_g_a', 'away_t_avg_a_g_a', 'away_t_avg_a_g']]
+
+        # return X[['home_t_avg_h_g', 'home_t_avg_h_g_a', 'away_t_avg_a_g_a', 'away_t_avg_a_g']]
+        return X[['h_diff_hg','h_diff_hg_a']]
 
 
 class ShotOTPct(BaseEstimator, TransformerMixin):
