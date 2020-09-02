@@ -454,8 +454,8 @@ if __name__ == '__main__':
     t.train()
     print(colored("############  Evaluating model ############", "blue"))
     t.evaluate()
-    print(colored("############   Saving model    ############", "green"))
-    t.save_model()
+    # print(colored("############   Saving model    ############", "green"))
+    # t.save_model()
 
     # params = dict(upload=True,
     #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
