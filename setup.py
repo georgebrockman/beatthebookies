@@ -28,7 +28,10 @@ REQUIRED_PACKAGES = [
 'joblib',
 'streamlit',
 'flask',
-'flask_cors']
+'flask_cors',
+'matplotlib',
+'seaborn',
+'termcolor']
 
 setup(name='beatthebookies',
       # install_requires=requirements,

@@ -19,3 +19,4 @@ joblib
 streamlit
 flask
 flask_cors
+termcolor
