@@ -64,7 +64,7 @@ def format_input(input):
             if k in COLS:
                 formated_input[k] = v[0]
 
-    print(formated_input)
+    print(len(formated_input))
     return formated_input
 
 
@@ -144,6 +144,7 @@ def main():
             to_predict = [format_input(team) for team in to_predict]
             X = pd.DataFrame(to_predict)
             X = X[COLS]
+            print(X)
             prediction = pipeline.predict(X[COLS])
             if prediction[0] == 1:
                 st.header(f"Looks like your best bet is the hometeam")
@@ -175,8 +176,8 @@ def main():
                           'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against',]]
         away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
                           'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
-        away_stats['Team'] = game['away_team']
-        home_stats['Team'] = game['home_team']
+        away_stats['Team'] = game['away_team'].copy()
+        home_stats['Team'] = game['home_team'].copy()
         home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
         away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
         cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
