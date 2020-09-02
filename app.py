@@ -183,7 +183,7 @@ def main():
         pipeline = joblib.load('model.joblib')
         # input from user with arbitary default team name suggestions and game week
         st.markdown("""<a id="top"></a>""",unsafe_allow_html=True)
-        stage = st.selectbox('Game Week', range(1,39))
+        stage = st.number_input('Game Week', min_value=1, max_value=39)
         bet = st.number_input('Max Bet Per Game')
         toc = Toc()
         href = f"""<a href="#top"> Back to top </a>"""
