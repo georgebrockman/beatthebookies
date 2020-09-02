@@ -8,15 +8,16 @@ import joblib
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
 from beatthebookies.encoders import FifaDifferentials, WeeklyGoalAverages, WinPctDifferentials, WeeklyGoalAgAverages, ShotOTPct, HomeAdv
-from beatthebookies.bettingstrategy import compute_profit
+from beatthebookies.bettingstrategy import compute_profit, optimizedhomeprofit
 from beatthebookies.gcp import storage_upload
 from beatthebookies.params import MODEL_VERSION
 
 from mlflow.tracking import MlflowClient
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from memoized_property import memoized_property
 
 from sklearn.linear_model import LogisticRegression, Lasso, Ridge, LinearRegression, RidgeClassifier
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score,GridSearchCV,RandomizedSearchCV
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, RandomForestClassifier
@@ -52,6 +53,8 @@ MLFLOW_URI = "https://mlflow.lewagon.co/"
 myname="Chris_Westerman"
 EXPERIMENT_NAME = f"[UK][London][{myname}] BeatTheBookies"
 
+#mlflow.sklearn.autolog()
+
 
 class Trainer(object):
 
@@ -71,6 +74,7 @@ class Trainer(object):
         self.y_test = y_test
         self.y_type = self.kwargs.get('y_type', 'single')
         self.bet = self.kwargs.get('bet', 10)
+        self.gridsearch = self.kwargs.get("gridsearch", False)
 
         if self.split:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(self.X, self.y, test_size=0.3, random_state=15)
@@ -79,19 +83,19 @@ class Trainer(object):
             self.X_train, self.y_train = self.balancing(self.X, self.y)
 
         self.experiment_name = kwargs.get("experiment_name", EXPERIMENT_NAME)
-        self.log_kwargs_params()
+        # self.log_kwargs_params()
         # self.model_params = None
 
-    def log_kwargs_params(self):
-          if self.mlflow:
-                self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'))
-                self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False))
-                self.mlflow_log_param('bet', self.kwargs.get('bet', 10))
+    # def log_kwargs_params(self):
+    #       if self.mlflow:
+    #             self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'))
+    #             self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False))
+    #             self.mlflow_log_param('bet', self.kwargs.get('bet', 10))
 
 
     def get_estimator(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
-        self.mlflow_log_param("model", estimator)
+        # self.mlflow_log_param("model", estimator)
         # added both regressions for predicting scores and classifier for match outcomes
         # elif estimator == 'Linear':
         #     model = LinearRegression()
@@ -105,43 +109,74 @@ class Trainer(object):
         #     model = GradientBoostingRegressor()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
-        if estimator == 'GaussianNB':
+        if estimator == 'GaussianNB': # No proba parameter needed
             model = GaussianNB()
-        elif estimator == 'LDA':
-            model = LinearDiscriminantAnalysis()
+        # elif estimator == 'LDA':
+        #     self.model_params = {'solver': ['lsqr','eigen'],  #note svd does not run with shrinkage and models using it will be tuned separately
+        #                           'n_components': [1.0,2.0,3.0,4.0,5.0]}
+        #     model = LinearDiscriminantAnalysis()
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         # classification models
-        elif estimator == 'Logistic':
+        if estimator == 'Logistic': # No proba parameter needed
+            self.model_params = {'C': np.arange(0.001,1000)}
+            #model = LogisticRegression(C=435.0009999999999)
             model = LogisticRegression()
         elif estimator == 'LDA':
             model = LinearDiscriminantAnalysis()
-        elif estimator == 'RandomForestClassifier':
+        elif estimator == 'RandomForestClassifier': # No proba parameter needed
+            self.model_params = {'bootstrap': [True, False],
+                                 'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
+                                 'max_features': ['auto', 'sqrt'],
+                                 'min_samples_leaf': [1, 2, 4],
+                                 'min_samples_split': [2, 5, 10],
+                                 'n_estimators': [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]}
+            #model = RandomForestClassifier(n_estimators=1800, n_jobs=-1,max_depth=100,min_samples_split=5,bootstrap=False)
             model = RandomForestClassifier()
-        elif estimator == "RidgeClassifier":
+        elif estimator == "RidgeClassifier": # No predict_proba
+            self.model_params = {"alpha": np.arange(0.001,1000)}
+            # model = RidgeClassifier(alpha=71.00099999999999)
             model = RidgeClassifier()
-        elif estimator == "KNNClassifier":
-            model = KNeighborsClassifier()
-        elif estimator == 'GaussianNB':
-            model = GaussianNB()
-        elif estimator == "XGBClassifier":
-            model = XGBClassifier()
+            # model = GridSearchCV(estimator=grid, param_grid=dict(alpha=alphas))
+        elif estimator == "KNNClassifier": # No Proba parameter needed
+            self.model_params = {"leaf_size": range(1,10),
+                                 "n_neighbors": range(1,10),
+                                 "p":[1.0,2.0]}
+            model = KNeighborsClassifier(leaf_size=4,n_neighbors=6,p=1) #positive results
+            # model = KNeighborsClassifier()
+            # model = GridSearchCV(knn, hyperparameters, cv=10)
+        elif estimator == "XGBClassifier": # Proba: Returns array with the probability of each data example being of a given class.
+            self.model_params = {'max_depth': range(2, 20, 2),
+                                 'n_estimators': range(60, 220, 40),
+                                 'learning_rate': [0.3, 0.1, 0.01, 0.05],
+                                 'min_child_weight': [1.0, 3.0, 5.0],
+                                 'gamma': [1.0, 3.0, 5.0]}
+            model = XGBClassifier(max_depth=15,n_estimators=50,learning_rate=0.01,min_child_weight=1,gamma=4.0) #positive results
+            # model = XGBClassifier(max_depth=18,n_estimators=60,learning_rate=0.05,min_child_weight=5,gamma=3.0) #positive results
+            #model = XGBClassifier()
+            # model = GridSearchCV(XGB, param_grid=params_1, cv=5)
         elif estimator == "SVC":
-            model = SVC(kernel='poly', probability=True)
-        # elif estimator == "Sequential":
-        #     model = Sequential()
-        #     model.add(Flatten())
-        #     model.add(BatchNormalization())
-        #     model.add(Dense(32, activation='relu'))
-        #     model.add(Dense(32, activation='relu'))
-        #     model.add(Dense(16, activation='relu'))
-        #     model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu',input_shape=(10000,)))
-        #     model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu'))
-        #     model.add(Dense(1, activation='sigmoid'))
-        #     # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
-        #     model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
+            self.model_params = {'C': [0.1,1, 10],
+                                  'gamma': [0.01,0.001],
+                                  'kernel': ['rbf', 'poly', 'sigmoid']}
+            #model = SVC(kernel='poly', C=0.1,gamma=0.01,probability=True)
+            model = SVC(probability=True)
+
+        elif estimator == "Sequential":
+            model = Sequential()
+            model.add(Flatten())
+            model.add(BatchNormalization())
+            model.add(Dense(32, activation='relu'))
+            model.add(Dense(32, activation='relu'))
+            model.add(Dense(16, activation='relu'))
+            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu',input_shape=(10000,)))
+            model.add(Dense(8,kernel_regularizer=regularizers.l2(0.003),activation='relu'))
+            model.add(Dense(1, activation='sigmoid'))
+            # model.add(SimpleRNN(1, input_shape=[None, 1], activation='tanh'))
+            model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
 
         else:
+            self.model_params = {'C': [0.001,0.01,0.1,1,10,100,1000]}
             model = LogisticRegression()
 
         estimator_params = self.kwargs.get("estimator_params", {})
@@ -150,6 +185,7 @@ class Trainer(object):
         return model
 
     def set_pipeline(self):
+        feateng_steps = self.kwargs.get('feateng', ['fifadiff','windiff','goaldiff','homeadv','shototpct','goalagdiff'])
 
         pipe_fifadiff = make_pipeline(FifaDifferentials(), RobustScaler())
         pipe_winpct = make_pipeline(WinPctDifferentials(), StandardScaler())
@@ -167,6 +203,10 @@ class Trainer(object):
                           ('shototpct', pipe_shototpct, ['home_t_total_shots', 'home_t_total_shots_ot', 'away_t_total_shots', 'away_t_total_shots_ot']),
                           ('goalagdiff', pipe_avggoal_ag, ['home_t_total_goals_against','away_t_total_goals_against', 'stage'])
                          ]
+
+        for bloc in feateng_blocks:
+            if bloc[0] not in feateng_steps:
+              feateng_blocks.remove(bloc)
 
         features_encoder = ColumnTransformer(feateng_blocks, n_jobs=None, remainder="drop")
 
@@ -212,6 +252,25 @@ class Trainer(object):
           return X_train, y_train
 
 
+    def add_gridsearch(self):
+        """"
+        Apply Gridsearch on self.params defined in get_estimator
+        {'rgs__n_estimators': [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)],
+          'rgs__max_features' : ['auto', 'sqrt'],
+          'rgs__max_depth' : [int(x) for x in np.linspace(10, 110, num = 11)]}
+        """
+        # Here to apply ramdom search to pipeline, need to follow naming "rgs__paramname"
+
+        #mlflow.sklearn.autolog()
+
+        params = {"rgs__" + k: v for k, v in self.model_params.items()}
+        self.pipeline = RandomizedSearchCV(estimator=self.pipeline, param_distributions=params,
+                                           n_iter=10,
+                                           cv=2,
+                                           verbose=1,
+                                           random_state=42,
+                                           n_jobs=-1)
+                                           #pre_dispatch=None)
 
 
     @simple_time_tracker
@@ -219,11 +278,18 @@ class Trainer(object):
         tic = time.time()
         # es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
-        # if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
-        #     self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
-        #                 rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
-        # else:
-        self.pipeline.fit(self.X_train, self.y_train)
+        if self.gridsearch:
+            self.add_gridsearch()
+        if self.kwargs.get("estimator", self.ESTIMATOR) == 'Sequential':
+            self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
+                        rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
+        else:
+            self.pipeline.fit(self.X_train, self.y_train)
+            #pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
+            # best_estimator = pipelinefit.best_estimator_
+            # print(best_estimator)
+            # self.mlflow_log_param("best_estimator",best_estimator)
+            #return pipelinefit
 
 
     def evaluate(self):
@@ -233,8 +299,8 @@ class Trainer(object):
             raise ("Cannot evaluate an empty pipeline")
 
         if self.split:
-            y_val_pred = self.pipeline.predict_proba(self.X_val)
-            y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
+              y_val_pred = self.pipeline.predict_proba(self.X_val)
+              y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
         # y_test_pred = self.pipeline.predict(self.X_test)
         y_test_pred = self.pipeline.predict_proba(self.X_test) #.reshape((380,))
         y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
@@ -248,13 +314,17 @@ class Trainer(object):
             convert = pd.DataFrame({'pct': y_test_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             positives = convert.predict.sum()
-            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            # stake = optimizedhomebet(self.X_test, convert, self.y_test, bankroll=100)
+            # profit = optimizedhomeprofit(self.X_test, convert['pct'], self.y_test, bankroll=100):
+            kelly_criterion = optimizedhomeprofit(self.X_test, convert.pct.to_numpy(), self.y_test, bankroll=10)
+            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
             scores = compute_overall_scores(convert.predict, self.y_test)
             # val
             convert = pd.DataFrame({'pct': y_val_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             val_positives = convert.predict.sum()
-            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            kelly_criterion = optimizedhomeprofit(self.X_val, convert.pct.to_numpy(), self.y_val, bankroll=10)
+            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
             val_scores = compute_overall_scores(convert.predict, self.y_val)
 
         if self.y_type == 'label':
@@ -264,29 +334,39 @@ class Trainer(object):
             season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
             val_positives = y_val_pred.sum()
             positives = y_test_pred.sum()
-        self.mlflow_log_metric("val_f1",val_scores[1])
-        self.mlflow_log_metric("val_accuracy",val_scores[0])
-        self.mlflow_log_metric("val_recall",val_scores[2])
-        self.mlflow_log_metric("val_f1",val_scores[3])
-        self.mlflow_log_metric('val_picked', val_positives)
-        # self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
-        self.mlflow_log_metric('val_model_profits', val_model_profit)
+
+        # self.mlflow_log_metric("best_estimator",best_estimator)
+        run_id = self.mlflow_run().info.run_id
+        self.mlflow_log_param("model", estimator,run_id)
+        self.mlflow_log_param('balance', self.kwargs.get('balance', 'balance'),run_id)
+        self.mlflow_log_param('gridsearch', self.kwargs.get('gridsearch', False),run_id)
+        self.mlflow_log_param('bet', self.kwargs.get('bet', 10),run_id)
 
 
-        self.mlflow_log_metric('test_picked', positives)
-        self.mlflow_log_metric("test_precision",scores[1])
-        self.mlflow_log_metric("test_accuracy",scores[0])
-        self.mlflow_log_metric("test_recall",scores[2])
-        self.mlflow_log_metric("profit_model",season_profit)
-        # self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        self.mlflow_log_metric("val_f1",val_scores[1],run_id)
+        self.mlflow_log_metric("val_accuracy",val_scores[0],run_id)
+        self.mlflow_log_metric("val_recall",val_scores[2],run_id)
+        self.mlflow_log_metric("val_f1",val_scores[3],run_id)
+        self.mlflow_log_metric('val_picked', val_positives,run_id)
+        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total,run_id)
+        self.mlflow_log_metric('val_model_profits', val_model_profit,run_id)
+
+
+        self.mlflow_log_metric('test_picked', positives, run_id)
+        self.mlflow_log_metric("test_precision",scores[1],run_id)
+        self.mlflow_log_metric("test_accuracy",scores[0],run_id)
+        self.mlflow_log_metric("test_recall",scores[2],run_id)
+        self.mlflow_log_metric("profit_model",season_profit,run_id)
+        self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
+
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        self.mlflow_log_metric("prof_home", home_profit_total)
+        self.mlflow_log_metric("prof_home", home_profit_total,run_id)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
         # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
-        self.mlflow_log_metric("val_home_profit", val_home_profit_total)
+        self.mlflow_log_metric("val_home_profit", val_home_profit_total,run_id)
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
@@ -313,15 +393,15 @@ class Trainer(object):
         except BaseException:
             return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
 
-    @memoized_property
+    #@memoized_property
     def mlflow_run(self):
         return self.mlflow_client.create_run(self.mlflow_experiment_id)
 
-    def mlflow_log_param(self, key, value):
-        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+    def mlflow_log_param(self, key, value, run_id):
+        self.mlflow_client.log_param(run_id, key, value)
 
-    def mlflow_log_metric(self, key, value):
-        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+    def mlflow_log_metric(self, key, value, run_id):
+        self.mlflow_client.log_metric(run_id, key, value)
 
 
 
@@ -335,31 +415,31 @@ if __name__ == '__main__':
         'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
         'home_w', 'away_w', 'draw', 'winning_odds']
 
-    experiment = "BeatTheBookies"
-    df, test_df = get_data(test_season='2019/2020')
-    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    y = df['home_w']
+
+    experiment = "BeatTheBookies-M"
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
-    models = ['Logistic', 'RandomForestClassifier','SVC']
+    # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
+    models = ['XGBClassifier']
     balancers = ['SMOTE', 'RandomUnderSampler']
+
     # for mod in models:
     #     for bal in balancers:
     #         print(mod, bal, ':')
     params = dict(upload=True,
                   test_season='2019/2020',
-                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  local=True,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   split=True,
                   y_type='pct',
                   balance='SMOTE',
                   bet = 10,
                   threshold=0.5,
-                  estimator='SVC',
+                  estimator='KNeighborsClassifier',
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
-                  feateng=None,
+                  feateng=['fifadiff','windiff','goaldiff','homeadv','shototpct','goalagdiff'],
                   n_jobs=-1)
     df, test_df = get_data(**params)
     # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
@@ -367,7 +447,7 @@ if __name__ == '__main__':
     y = df['home_w']
     # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X_test = test_df[cols]
-    y_test = test_df['under_win']
+    y_test = test_df['home_w']
     t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
     print(colored("############  Training model   ############", "red"))
     t.train()

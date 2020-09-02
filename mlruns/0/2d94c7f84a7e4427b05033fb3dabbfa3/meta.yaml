@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/nico/code/gbrockman/beatthebookies/mlruns/0/2d94c7f84a7e4427b05033fb3dabbfa3/artifacts
+end_time: 1599033889432
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: 2d94c7f84a7e4427b05033fb3dabbfa3
+run_uuid: 2d94c7f84a7e4427b05033fb3dabbfa3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1599033889396
+status: 3
+tags: []
+user_id: nico
