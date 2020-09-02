@@ -127,7 +127,7 @@ class Trainer(object):
         elif estimator == "XGBClassifier":
             model = XGBClassifier()
         elif estimator == "SVC":
-            model = SVC(kernel='poly')
+            model = SVC(kernel='poly', probability=True)
         elif estimator == "Sequential":
             model = Sequential()
             model.add(Flatten())
@@ -233,11 +233,11 @@ class Trainer(object):
             raise ("Cannot evaluate an empty pipeline")
 
         if self.split:
-            y_val_pred = self.pipeline.predict(self.X_val)
-            # y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
+            y_val_pred = self.pipeline.predict_proba(self.X_val)
+            y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
         # y_test_pred = self.pipeline.predict(self.X_test)
-        y_test_pred = self.pipeline.predict(self.X_test) #.reshape((380,))
-        # y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
+        y_test_pred = self.pipeline.predict_proba(self.X_test) #.reshape((380,))
+        y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
 
         def predict_threshold(x):
             if x['pct'] >= self.kwargs.get('threshold', 0.5):
@@ -248,20 +248,20 @@ class Trainer(object):
             convert = pd.DataFrame({'pct': y_test_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             positives = convert.predict.sum()
-            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
             scores = compute_overall_scores(convert.predict, self.y_test)
             # val
             convert = pd.DataFrame({'pct': y_val_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             val_positives = convert.predict.sum()
-            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
             val_scores = compute_overall_scores(convert.predict, self.y_val)
 
         if self.y_type == 'label':
             val_scores = compute_overall_scores(y_val_pred, self.y_val)
             scores = compute_overall_scores(y_test_pred, self.y_test)
-            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
-            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
+            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
+            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
             val_positives = y_val_pred.sum()
             positives = y_test_pred.sum()
         self.mlflow_log_metric("val_f1",val_scores[1])
@@ -269,7 +269,7 @@ class Trainer(object):
         self.mlflow_log_metric("val_recall",val_scores[2])
         self.mlflow_log_metric("val_f1",val_scores[3])
         self.mlflow_log_metric('val_picked', val_positives)
-        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
+        # self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total)
         self.mlflow_log_metric('val_model_profits', val_model_profit)
 
 
@@ -278,15 +278,15 @@ class Trainer(object):
         self.mlflow_log_metric("test_accuracy",scores[0])
         self.mlflow_log_metric("test_recall",scores[2])
         self.mlflow_log_metric("profit_model",season_profit)
-        self.mlflow_log_metric("prof_underdogs", dog_profit_total)
+        # self.mlflow_log_metric("prof_underdogs", dog_profit_total)
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        # self.mlflow_log_metric("prof_home", home_profit_total)
+        self.mlflow_log_metric("prof_home", home_profit_total)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
         # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
-        # self.mlflow_log_metric("prof_v_home", home_profit_v_total)
+        self.mlflow_log_metric("val_home_profit", val_home_profit_total)
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
@@ -295,7 +295,7 @@ class Trainer(object):
     def save_model(self, upload=True, auto_remove=True):
         """Save the model into a .joblib and upload it on Google Storage /models folder
         HINTS : use sklearn.joblib (or jbolib) libraries and google-cloud-storage"""
-        joblib.dump(self.pipeline, 'model.joblib')
+        joblib.dump(self.pipeline, 'beatthebookies/data/model.joblib')
         print(colored("model.joblib saved locally", "green"))
 
         if not self.local:
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     experiment = "BeatTheBookies"
     df, test_df = get_data(test_season='2019/2020')
     X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    y = df['under_win']
+    y = df['home_w']
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     models = ['Logistic', 'RandomForestClassifier','SVC']
@@ -351,7 +351,7 @@ if __name__ == '__main__':
                   local=False,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   split=True,
-                  y_type='label',
+                  y_type='pct',
                   balance='SMOTE',
                   bet = 10,
                   threshold=0.5,
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     df, test_df = get_data(**params)
     # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X = df[cols]
-    y = df['under_win']
+    y = df['home_w']
     # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X_test = test_df[cols]
     y_test = test_df['under_win']
