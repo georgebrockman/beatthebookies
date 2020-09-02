@@ -120,10 +120,10 @@ class Trainer(object):
         # classification models
         if estimator == 'Logistic': # No proba parameter needed
             self.model_params = {'C': np.arange(0.001,1000)}
-            #model = LogisticRegression(C=435.0009999999999)
+            #model = LogisticRegression(C=20.000999999999998)
             model = LogisticRegression()
-        elif estimator == 'LDA':
-            model = LinearDiscriminantAnalysis()
+        # elif estimator == 'LDA':
+        #     model = LinearDiscriminantAnalysis()
         elif estimator == 'RandomForestClassifier': # No proba parameter needed
             self.model_params = {'bootstrap': [True, False],
                                  'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
@@ -135,15 +135,15 @@ class Trainer(object):
             model = RandomForestClassifier()
         elif estimator == "RidgeClassifier": # No predict_proba
             self.model_params = {"alpha": np.arange(0.001,1000)}
-            # model = RidgeClassifier(alpha=71.00099999999999)
-            model = RidgeClassifier()
+            model = RidgeClassifier(alpha=106.00099999999999)
+            # model = RidgeClassifier()
             # model = GridSearchCV(estimator=grid, param_grid=dict(alpha=alphas))
         elif estimator == "KNNClassifier": # No Proba parameter needed
-            self.model_params = {"leaf_size": range(1,10),
-                                 "n_neighbors": range(1,10),
+            self.model_params = {"leaf_size": range(1,1000),
+                                 "n_neighbors": range(1,1000),
                                  "p":[1.0,2.0]}
-            model = KNeighborsClassifier(leaf_size=4,n_neighbors=6,p=1) #positive results
-            # model = KNeighborsClassifier()
+            #model = KNeighborsClassifier(leaf_size=336,n_neighbors=913,p=2.0) #positive results
+            model = KNeighborsClassifier()
             # model = GridSearchCV(knn, hyperparameters, cv=10)
         elif estimator == "XGBClassifier": # Proba: Returns array with the probability of each data example being of a given class.
             self.model_params = {'max_depth': range(2, 20, 2),
@@ -151,16 +151,16 @@ class Trainer(object):
                                  'learning_rate': [0.3, 0.1, 0.01, 0.05],
                                  'min_child_weight': [1.0, 3.0, 5.0],
                                  'gamma': [1.0, 3.0, 5.0]}
-            model = XGBClassifier(max_depth=15,n_estimators=50,learning_rate=0.01,min_child_weight=1,gamma=4.0) #positive results
+            #model = XGBClassifier(max_depth=14,n_estimators=60,learning_rate=0.1,min_child_weight=1.0,gamma=5.0) #positive results
             # model = XGBClassifier(max_depth=18,n_estimators=60,learning_rate=0.05,min_child_weight=5,gamma=3.0) #positive results
-            #model = XGBClassifier()
+            model = XGBClassifier()
             # model = GridSearchCV(XGB, param_grid=params_1, cv=5)
         elif estimator == "SVC":
-            self.model_params = {'C': [0.1,1, 10],
+            self.model_params = {'C': [0.1,1, 10,100,1000],
                                   'gamma': [0.01,0.001],
                                   'kernel': ['rbf', 'poly', 'sigmoid']}
-            #model = SVC(kernel='poly', C=0.1,gamma=0.01,probability=True)
-            model = SVC(probability=True)
+            model = SVC(kernel='sigmoid', C=80,gamma=0.001,probability=True)
+            #model = SVC(probability=True)
 
         elif estimator == "Sequential":
             model = Sequential()
@@ -222,7 +222,7 @@ class Trainer(object):
 
         if balance == "SMOTE":
           # Create new samples without making any disticntion between easy and hard samples to be classified using K-nearest neighbor
-          X_train, y_train = SMOTE().fit_resample(X_train, y_train)
+          X_train, y_train = SMOTE(random_state=15).fit_resample(X_train, y_train)
           print(Counter(y_train))
           return X_train, y_train
         elif balance == "ADASYN":
@@ -284,13 +284,14 @@ class Trainer(object):
             self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
                         rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
         else:
-            self.pipeline.fit(self.X_train, self.y_train)
-            #pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
-            # best_estimator = pipelinefit.best_estimator_
-            # print(best_estimator)
-            # self.mlflow_log_param("best_estimator",best_estimator)
-            #return pipelinefit
-
+            if self.gridsearch:
+              pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
+              best_estimator = pipelinefit.best_estimator_
+              print(best_estimator)
+              #self.mlflow_log_param("best_estimator",best_estimator,run_id)
+              return pipelinefit
+            else:
+              self.pipeline.fit(self.X_train, self.y_train)
 
     def evaluate(self):
         estimator = self.kwargs.get("estimator", self.ESTIMATOR)
@@ -435,7 +436,7 @@ if __name__ == '__main__':
                   balance='SMOTE',
                   bet = 10,
                   threshold=0.5,
-                  estimator='KNeighborsClassifier',
+                  estimator='SVC',
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
