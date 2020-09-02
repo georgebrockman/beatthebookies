@@ -11,14 +11,15 @@ from random import randint, uniform
 
 
 from beatthebookies.gcp import download_model
-from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH
+from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH, MODEL_NAME, MODEL_VERSION
 
 app = Flask(__name__)
 CORS(app)
 
 PATH_TO_MODEL = "model.joblib"
-# PATH_TO_MODEL = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
-FIFA_FILE = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
+FIFA_FILE = 'fifarank21.csv'
+# GCP_PATH_TO_MODEL = 'models/{}/versions/{}/{}'.format(MODEL_NAME,MODEL_VERSION,'model.joblib')
+# GCP_FIFA_FILE = "gs://{}/{}".format(BUCKET_NAME, BUCKET_PREDICT_DATA_PATH)
 
 DF = pd.read_csv(FIFA_FILE)
 TEAMS = DF['Team']

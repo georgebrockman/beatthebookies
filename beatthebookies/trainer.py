@@ -4,7 +4,6 @@ import time
 import pandas as pd
 import numpy as np
 import joblib
-import tensorflow
 
 from beatthebookies.data import get_data
 from beatthebookies.utils import simple_time_tracker, compute_scores, compute_overall_scores
@@ -28,6 +27,7 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 
+# import tensorflow
 # from tensorflow import keras
 # from tensorflow.keras.models import Sequential
 # from tensorflow.keras import optimizers, regularizers

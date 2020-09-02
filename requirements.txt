@@ -20,3 +20,6 @@ streamlit
 flask
 flask_cors
 termcolor
+matplotlib
+seaborn
+
