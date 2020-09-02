@@ -37,7 +37,7 @@ COLS = ['H_ATT', 'A_ATT', 'H_MID', 'A_MID', 'H_DEF', 'A_DEF', 'H_OVR', 'A_OVR',
 def format_input(input):
     formated_input = {}
     for col in COLS:
-        formated_input[col] = randint(1,20) #float(input[col]  )
+        formated_input[col] = randint(1,20) #float(input[col])
     formated_input['H_ATT'] = float(input['home_rank']['ATT'].values[0])
     formated_input['A_ATT'] = float(input['away_rank']['ATT'].values[0])
     formated_input['H_MID'] = float(input['home_rank']['MID'].values[0])
