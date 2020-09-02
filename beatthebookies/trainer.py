@@ -109,7 +109,7 @@ class Trainer(object):
         #     model = GradientBoostingRegressor()
         # elif estimator == "KNNRegressor":
         #     model = KNeighborsRegressor()
-        if estimator == 'GaussianNB':
+        if estimator == 'GaussianNB': # No proba parameter needed
             model = GaussianNB()
         # elif estimator == 'LDA':
         #     self.model_params = {'solver': ['lsqr','eigen'],  #note svd does not run with shrinkage and models using it will be tuned separately
@@ -118,13 +118,13 @@ class Trainer(object):
         # elif estimator == "xgboost":
         #     model = XGBRegressor()
         # classification models
-        if estimator == 'Logistic':
+        if estimator == 'Logistic': # No proba parameter needed
             self.model_params = {'C': np.arange(0.001,1000)}
             #model = LogisticRegression(C=435.0009999999999)
             model = LogisticRegression()
         elif estimator == 'LDA':
             model = LinearDiscriminantAnalysis()
-        elif estimator == 'RandomForestClassifier':
+        elif estimator == 'RandomForestClassifier': # No proba parameter needed
             self.model_params = {'bootstrap': [True, False],
                                  'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
                                  'max_features': ['auto', 'sqrt'],
@@ -133,29 +133,35 @@ class Trainer(object):
                                  'n_estimators': [200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000]}
             #model = RandomForestClassifier(n_estimators=1800, n_jobs=-1,max_depth=100,min_samples_split=5,bootstrap=False)
             model = RandomForestClassifier()
-        elif estimator == "RidgeClassifier":
+        elif estimator == "RidgeClassifier": # No predict_proba
             self.model_params = {"alpha": np.arange(0.001,1000)}
             # model = RidgeClassifier(alpha=71.00099999999999)
             model = RidgeClassifier()
             # model = GridSearchCV(estimator=grid, param_grid=dict(alpha=alphas))
-        elif estimator == "KNNClassifier":
+        elif estimator == "KNNClassifier": # No Proba parameter needed
             self.model_params = {"leaf_size": range(1,10),
                                  "n_neighbors": range(1,10),
                                  "p":[1.0,2.0]}
-            # model = KNeighborsClassifier(leaf_size=6,n_neighbors=6,p=1.0) #positive results
-            model = KNeighborsClassifier()
+            model = KNeighborsClassifier(leaf_size=4,n_neighbors=6,p=1) #positive results
+            # model = KNeighborsClassifier()
             # model = GridSearchCV(knn, hyperparameters, cv=10)
-        elif estimator == "XGBClassifier":
+        elif estimator == "XGBClassifier": # Proba: Returns array with the probability of each data example being of a given class.
             self.model_params = {'max_depth': range(2, 20, 2),
                                  'n_estimators': range(60, 220, 40),
                                  'learning_rate': [0.3, 0.1, 0.01, 0.05],
                                  'min_child_weight': [1.0, 3.0, 5.0],
                                  'gamma': [1.0, 3.0, 5.0]}
+            model = XGBClassifier(max_depth=15,n_estimators=50,learning_rate=0.01,min_child_weight=1,gamma=4.0) #positive results
             # model = XGBClassifier(max_depth=18,n_estimators=60,learning_rate=0.05,min_child_weight=5,gamma=3.0) #positive results
-            model = XGBClassifier()
+            #model = XGBClassifier()
             # model = GridSearchCV(XGB, param_grid=params_1, cv=5)
         elif estimator == "SVC":
-            model = SVC(kernel='poly', probability=True)
+            self.model_params = {'C': [0.1,1, 10],
+                                  'gamma': [0.01,0.001],
+                                  'kernel': ['rbf', 'poly', 'sigmoid']}
+            #model = SVC(kernel='poly', C=0.1,gamma=0.01,probability=True)
+            model = SVC(probability=True)
+
         elif estimator == "Sequential":
             model = Sequential()
             model.add(Flatten())
@@ -270,7 +276,7 @@ class Trainer(object):
     @simple_time_tracker
     def train(self):
         tic = time.time()
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
+        #es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=50)
         self.set_pipeline()
         if self.gridsearch:
             self.add_gridsearch()
@@ -278,12 +284,12 @@ class Trainer(object):
             self.pipeline.fit(self.X_train, self.y_train,  rgs__validation_split=0.2, rgs__shuffle=True, rgs__epochs=300,
                         rgs__batch_size=32, rgs__verbose=1, rgs__callbacks=[es])
         else:
-            #self.pipeline.fit(self.X_train, self.y_train)
-            pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
-            best_estimator = pipelinefit.best_estimator_
-            print(best_estimator)
-            self.mlflow_log_param("best_estimator",best_estimator)
-            return pipelinefit
+            self.pipeline.fit(self.X_train, self.y_train)
+            #pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
+            # best_estimator = pipelinefit.best_estimator_
+            # print(best_estimator)
+            # self.mlflow_log_param("best_estimator",best_estimator)
+            #return pipelinefit
 
 
     def evaluate(self):
@@ -293,8 +299,8 @@ class Trainer(object):
             raise ("Cannot evaluate an empty pipeline")
 
         if self.split:
-            y_val_pred = self.pipeline.predict_proba(self.X_val)
-            y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
+              y_val_pred = self.pipeline.predict_proba(self.X_val)
+              y_val_pred = y_val_pred[:,1:].reshape((len(y_val_pred),))
         # y_test_pred = self.pipeline.predict(self.X_test)
         y_test_pred = self.pipeline.predict_proba(self.X_test) #.reshape((380,))
         y_test_pred = y_test_pred[:,1:].reshape((len(y_test_pred),))
@@ -354,13 +360,13 @@ class Trainer(object):
         self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
 
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
-        self.mlflow_log_metric("prof_home", home_profit_total)
+        self.mlflow_log_metric("prof_home", home_profit_total,run_id)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
         # self.mlflow_log_metric("prof_away", away_profit_total)
         # self.mlflow_log_metric("profit_val",val_profit)
         # self.mlflow_log_metric("prof_v_favorites",fav_profit_v_total)
         # self.mlflow_log_metric("prof_v_underdogs", dog_profit_v_total)
-        self.mlflow_log_metric("val_home_profit", val_home_profit_total)
+        self.mlflow_log_metric("val_home_profit", val_home_profit_total,run_id)
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
@@ -409,10 +415,8 @@ if __name__ == '__main__':
         'away_t_total_shots', 'away_t_total_shots_ot', 'home_t_total_goals_against','away_t_total_goals_against', 'WHH', 'WHA', "WHD",
         'home_w', 'away_w', 'draw', 'winning_odds']
 
-    experiment = "BeatTheBookies"
-    # df, test_df = get_data(test_season='2019/2020')
-    # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
-    # y = df['home_w']
+
+    experiment = "BeatTheBookies-M"
     # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
@@ -424,18 +428,18 @@ if __name__ == '__main__':
     #         print(mod, bal, ':')
     params = dict(upload=True,
                   test_season='2019/2020',
-                  local=False,  # set to False to get data from GCP (Storage or BigQuery)
+                  local=True,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   split=True,
                   y_type='pct',
                   balance='SMOTE',
                   bet = 10,
                   threshold=0.5,
-                  estimator='SVC',
+                  estimator='KNeighborsClassifier',
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
-                  feateng=None,
+                  feateng=['fifadiff','windiff','goaldiff','homeadv','shototpct','goalagdiff'],
                   n_jobs=-1)
     df, test_df = get_data(**params)
     # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
