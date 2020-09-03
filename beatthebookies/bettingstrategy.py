@@ -59,6 +59,17 @@ def compute_stake(x):
         return 0
     return stake_pct
 
+def kelly_prediction(y_pred, odds, bet):
+    odds = odds
+    prob_succ = y_pred
+    B = odds = 1
+    stake_pct = ((B * y_pred) - (1 - prob_succ)) / B
+    stake = round(stake_pct * bet,2)
+    if stake < 0:
+        return 0
+    return stake
+
+
 def optimizeddog(df, y_pred, y_true, bankroll=100):
     """ This function determines the optimum split of your betting bankroll for each Premier League Game Week """
     under_odd = df[['WHH','WHD','WHA']].max()

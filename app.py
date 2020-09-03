@@ -12,6 +12,7 @@ from random import randint, uniform
 
 from beatthebookies.gcp import download_model
 from beatthebookies.params import BUCKET_NAME, BUCKET_PREDICT_DATA_PATH, MODEL_NAME, MODEL_VERSION
+from beatthebookies.bettingstrategy import kelly_prediction
 
 app = Flask(__name__)
 CORS(app)
@@ -154,6 +155,7 @@ def main():
         # input from user with arbitary default team name suggestions and game week
         home_team = st.selectbox('Home Team', TEAMS)
         away_team = st.selectbox('Away Team', TEAMS)
+        bet = st.number_input('Max Bet Per Game')
         if home_team != away_team:
             st.write('You selected:')
             home_ranks = FIFA_DF[FIFA_DF['Team'] == home_team]
@@ -167,12 +169,15 @@ def main():
             to_predict = [format_input(team) for team in to_predict]
             X = pd.DataFrame(to_predict)
             X = X[COLS]
-            print(X)
-            prediction = pipeline.predict(X[COLS])
-            if prediction[0] == 1:
-                st.header(f"Looks like your best bet is the hometeam")
+            prediction = pipeline.predict(X[COLS])[0]
+            prediction_proba = pipeline.predict_proba(X[COLS])[0][1]
+            kelly = kelly_prediction(prediction_proba, odds['Home Win'].values[0], bet)
+            if prediction == 1:
+                st.subheader(f"Your best bet is on the hometeam with {round(prediction_proba * 100,2)}% certainty")
+                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
             else:
-                st.header(f"Could go either way, steer clear on this one")
+                st.subheader(f"Not looking great for the hometeam, only a {round(prediction_proba * 100,2)}% chance of a win")
+                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
             st.markdown("**Place your bets with your favourite Bookmaker**")
         else:
             st.markdown("**Pick an Opponent**")
@@ -227,19 +232,24 @@ def main():
             to_predict = [format_input(team) for team in to_predict]
             X = pd.DataFrame(to_predict)
             X = X[COLS]
-            prediction = pipeline.predict(X[COLS])
-            if prediction[0] == 1:
-                st.subheader(f"Your best bet is on the hometeam")
+            prediction = pipeline.predict(X[COLS])[0]
+            prediction_proba = pipeline.predict_proba(X[COLS])[0][1]
+            kelly = kelly_prediction(prediction_proba, game.WHH.values[0], bet)
+            if prediction == 1:
+                st.subheader(f"Your best bet is on the hometeam with {round(prediction_proba * 100,2)}% certainty")
+                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
                 if (odds['Results'].values[0] == 'H'):
-                    profit = round((int(bet) * game.WHH.values[0]) - bet, 2)
-                    profits.append(profit)
-                    st.write(f'Collect your £{profit}')
+                    profit = round((kelly * game.WHH.values[0]) - kelly, 2)
+                    collection = round(kelly * game.WHH.values[0], 2)
+                    profits.append(collection)
+                    st.write(f'Collect your £{collection}')
                 else:
-                    profit = -bet
+                    profit = -kelly
                     profits.append(profit)
                     st.write("Nobody bats 1000")
             else:
-                st.subheader(f"We think it could go either way, steer clear on this one")
+                st.subheader(f"Not looking great for the hometeam, only a {round(prediction_proba * 100,2)}% chance of a win")
+                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
                 if (odds['Results'].values[0] == 'H'):
                     st.write('Well, better safe than sorry')
                 else:
@@ -251,7 +261,7 @@ def main():
 
         weekly_profit = round(sum(profits),2)
         toc.header(f'Weekly Results')
-        st.write(f'**Total winnings for the week were £{weekly_profit}**')
+        st.write(f'**Total collections for the week were £{weekly_profit}**')
         if weekly_profit > 0:
             st.balloons()
 
