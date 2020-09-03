@@ -145,7 +145,7 @@ class Trainer(object):
             #model = KNeighborsClassifier(leaf_size=336,n_neighbors=913,p=2.0) #positive results
             model = KNeighborsClassifier()
             # model = GridSearchCV(knn, hyperparameters, cv=10)
-        elif estimator == "XGBClassifier": # Proba: Returns array with the probability of each data example being of a given class.
+        elif estimator == "XGBClassifier": # Promba: Returns array with the probability of each data example being of a given class.
             self.model_params = {'max_depth': range(2, 20, 2),
                                  'n_estimators': range(60, 220, 40),
                                  'learning_rate': [0.3, 0.1, 0.01, 0.05],
@@ -264,6 +264,7 @@ class Trainer(object):
         #mlflow.sklearn.autolog()
 
         params = {"rgs__" + k: v for k, v in self.model_params.items()}
+
         self.pipeline = RandomizedSearchCV(estimator=self.pipeline, param_distributions=params,
                                            n_iter=10,
                                            cv=2,
@@ -433,7 +434,7 @@ if __name__ == '__main__':
                   gridsearch=False,
                   split=True,
                   y_type='pct',
-                  balance='SMOTE',
+                  balance='RandomUnderSampler',
                   bet = 10,
                   threshold=0.5,
                   estimator='SVC',
