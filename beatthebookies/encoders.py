@@ -111,8 +111,8 @@ class HomeAdv(BaseEstimator, TransformerMixin):
         # dividing by zero returns infinite and NaN values
 
 
-        return X[['home_t_avg_h_g', 'home_t_avg_h_g_a', 'away_t_avg_a_g_a', 'away_t_avg_a_g']]
-        #return X[['h_diff_hg','h_diff_hg_a']]
+        # return X[['home_t_avg_h_g', 'home_t_avg_h_g_a', 'away_t_avg_a_g_a', 'away_t_avg_a_g']]
+        return X[['h_diff_hg','h_diff_hg_a']]
 
 
 class ShotOTPct(BaseEstimator, TransformerMixin):

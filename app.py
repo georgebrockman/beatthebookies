@@ -145,6 +145,26 @@ st.markdown("**Beat the Bookies**")
 #     # names entered could be slightly different variants so maybe a drop down table of suggested team names ?
 #     pass
 
+def generate_game():
+    low_stats = ['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_prev_home_matches', 'away_t_total_wins',
+                  'away_t_total_losses', 'away_t_total_draws', 'away_t_prev_away_matches', 'stage']
+
+    mid_stats = ['home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against','home_t_total_goals_against',
+                'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against','away_t_total_goals_against']
+    high_stats = ['away_t_total_shots_ot','home_t_total_shots_ot']
+    highest_stats = [ 'home_t_total_shots', 'away_t_total_shots']
+    game = {}
+    for stat in low_stats:
+        game[stat] = randint(1,5)
+    for stat in mid_stats:
+        game[stat] = randint(5,15)
+    for stat in high_stats:
+        game[stat] = randint(30,40)
+    for stat in highest_stats:
+        game[stat] = randint(60,80)
+    game_df = pd.DataFrame(game, index=[0])
+    return game_df
+
 
 def main():
     analysis = st.sidebar.selectbox("Choose prediction type", ["2020/2021", "2019/2020"])
@@ -158,13 +178,37 @@ def main():
         bet = st.number_input('Max Bet Per Game')
         if home_team != away_team:
             st.write('You selected:')
+
+            st.write('**Fifa Rankings**')
             home_ranks = FIFA_DF[FIFA_DF['Team'] == home_team]
             away_ranks = FIFA_DF[FIFA_DF['Team'] == away_team]
             df = pd.concat([home_ranks, away_ranks], axis=0)
             st.table(df.drop(columns='League').set_index('Team').style.highlight_max(axis=0))
-            odds = pd.DataFrame({'Home Win': round(uniform(1,2.5),2), 'Away Win': round(uniform(1,10),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
+            game = generate_game()
+            home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
+                              'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against']]
+            away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
+                              'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
+            away_stats['Team'] = away_team
+            home_stats['Team'] = home_team
+
+            home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
+            away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
+            cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
+            home_show.columns = cols
+            away_show.columns = cols
+
+            st.write('**Team Stats**')
+            stat_df = pd.concat([home_show, away_show], axis=0)
+            st.table(stat_df.set_index('Team'))
+
+            st.write('**Game Odds**')
+            odds = pd.DataFrame({'Home Win': round(uniform(1.3,3.5),2), 'Away Win': round(uniform(1.5,8),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
             st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
-            to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks}
+            odds['stage'] = game['stage']
+            game_stats = odds[['Home Win', 'Away Win', 'Draw', 'stage']]
+            game_stats.columns = ['WHH', 'WHA', 'WHD', 'stage']
+            to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks, 'home_stats': home_stats, 'away_stats': away_stats, 'game_stats': game_stats}
             to_predict = [to_predict]
             to_predict = [format_input(team) for team in to_predict]
             X = pd.DataFrame(to_predict)
@@ -209,7 +253,7 @@ def main():
             st.write('**Fifa Rankings**')
             st.table(df.set_index('Team').style.highlight_max(axis=0))
             home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
-                              'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against',]]
+                              'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against']]
             away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
                               'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
             away_stats['Team'] = game['away_team'].copy()

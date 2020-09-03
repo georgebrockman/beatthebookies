@@ -27,6 +27,7 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier
 
 # import tensorflow
 # from tensorflow import keras
@@ -155,12 +156,14 @@ class Trainer(object):
             # model = XGBClassifier(max_depth=18,n_estimators=60,learning_rate=0.05,min_child_weight=5,gamma=3.0) #positive results
             model = XGBClassifier()
             # model = GridSearchCV(XGB, param_grid=params_1, cv=5)
+        elif estimator == "Dummy":
+            model = DummyClassifier(strategy='uniform', random_state=15)
         elif estimator == "SVC":
             self.model_params = {'C': [0.1,1, 10,100,1000],
                                   'gamma': [0.01,0.001],
                                   'kernel': ['rbf', 'poly', 'sigmoid']}
-            model = SVC(kernel='sigmoid', C=80,gamma=0.001,probability=True)
-            #model = SVC(probability=True)
+            # model = SVC(kernel='sigmoid', C=80,gamma=0.001,probability=True)
+            model = SVC(probability=True)
 
         elif estimator == "Sequential":
             model = Sequential()
@@ -266,7 +269,7 @@ class Trainer(object):
         params = {"rgs__" + k: v for k, v in self.model_params.items()}
         self.pipeline = RandomizedSearchCV(estimator=self.pipeline, param_distributions=params,
                                            n_iter=10,
-                                           cv=2,
+                                           cv=5,
                                            verbose=1,
                                            random_state=42,
                                            n_jobs=-1)
@@ -287,7 +290,6 @@ class Trainer(object):
             if self.gridsearch:
               pipelinefit = self.pipeline.fit(self.X_train, self.y_train)
               best_estimator = pipelinefit.best_estimator_
-              print(best_estimator)
               #self.mlflow_log_param("best_estimator",best_estimator,run_id)
               return pipelinefit
             else:
@@ -314,27 +316,26 @@ class Trainer(object):
         if self.y_type == 'pct':
             convert = pd.DataFrame({'pct': y_test_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
-            positives = convert.predict.sum()
-            # stake = optimizedhomebet(self.X_test, convert, self.y_test, bankroll=100)
-            # profit = optimizedhomeprofit(self.X_test, convert['pct'], self.y_test, bankroll=100):
-            kelly_criterion = optimizedhomeprofit(self.X_test, convert.pct.to_numpy(), self.y_test, bankroll=10)
-            season_profit, _, dog_profit_total, _, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
-            scores = compute_overall_scores(convert.predict, self.y_test)
+            test_positives = convert.predict.sum()
+            test_kelly_criterion = optimizedhomeprofit(self.X_test, convert.pct.to_numpy(), self.y_test, bankroll=10)
+            test_model_profit, _, _, test_home_all, _, _ = compute_profit(self.X_test, convert.predict.to_numpy(), self.y_test, bet)
+            test_scores = compute_scores(convert.predict, self.y_test)
             # val
             convert = pd.DataFrame({'pct': y_val_pred})
             convert['predict'] = convert.apply(lambda x: predict_threshold(x), axis=1)
             val_positives = convert.predict.sum()
-            kelly_criterion = optimizedhomeprofit(self.X_val, convert.pct.to_numpy(), self.y_val, bankroll=10)
-            val_model_profit, _, val_dog_profit_total, _, _, _ = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
-            val_scores = compute_overall_scores(convert.predict, self.y_val)
+            val_size = len(convert.predict)
+            val_kelly_criterion = optimizedhomeprofit(self.X_val, convert.pct.to_numpy(), self.y_val, bankroll=10)
+            val_model_profit, val_fav_all, val_dogs_all, val_home_all, val_draw_all, val_away_all = compute_profit(self.X_val, convert.predict.to_numpy(), self.y_val, bet)
+            val_scores = compute_scores(convert.predict, self.y_val)
 
-        if self.y_type == 'label':
-            val_scores = compute_overall_scores(y_val_pred, self.y_val)
-            scores = compute_overall_scores(y_test_pred, self.y_test)
-            val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
-            season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
-            val_positives = y_val_pred.sum()
-            positives = y_test_pred.sum()
+        # if self.y_type == 'label':
+        #     val_scores = compute_overall_scores(y_val_pred, self.y_val)
+        #     scores = compute_overall_scores(y_test_pred, self.y_test)
+        #     val_model_profit, _, val_dog_profit_total, val_home_profit_total, _, _ = compute_profit(self.X_val, y_val_pred, self.y_val, bet)
+        #     season_profit, _, dog_profit_total, home_profit_total, _, _ = compute_profit(self.X_test, y_test_pred, self.y_test, bet)
+        #     val_positives = y_val_pred.sum()
+        #     positives = y_test_pred.sum()
 
         # self.mlflow_log_metric("best_estimator",best_estimator)
         run_id = self.mlflow_run().info.run_id
@@ -344,22 +345,30 @@ class Trainer(object):
         self.mlflow_log_param('bet', self.kwargs.get('bet', 10),run_id)
 
 
-        self.mlflow_log_metric("val_f1",val_scores[1],run_id)
-        self.mlflow_log_metric("val_accuracy",val_scores[0],run_id)
-        self.mlflow_log_metric("val_recall",val_scores[2],run_id)
-        self.mlflow_log_metric("val_f1",val_scores[3],run_id)
+        self.mlflow_log_metric("val_precision",val_scores[0][1],run_id)
+        self.mlflow_log_metric("val_size", val_size,run_id)
         self.mlflow_log_metric('val_picked', val_positives,run_id)
-        self.mlflow_log_metric('val_prof_underdogs', val_dog_profit_total,run_id)
+        self.mlflow_log_metric('val_home_all', val_home_all,run_id)
+        self.mlflow_log_metric('val_fav_all', val_fav_all,run_id)
+        self.mlflow_log_metric('val_dogs_all', val_dogs_all,run_id)
+        self.mlflow_log_metric('val_draw_all', val_draw_all,run_id)
+        self.mlflow_log_metric('val_away_all', val_away_all,run_id)
         self.mlflow_log_metric('val_model_profits', val_model_profit,run_id)
+        self.mlflow_log_metric('val_kelly_criterion', val_kelly_criterion,run_id)
 
 
-        self.mlflow_log_metric('test_picked', positives, run_id)
-        self.mlflow_log_metric("test_precision",scores[1],run_id)
-        self.mlflow_log_metric("test_accuracy",scores[0],run_id)
-        self.mlflow_log_metric("test_recall",scores[2],run_id)
-        self.mlflow_log_metric("profit_model",season_profit,run_id)
-        self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
+        self.mlflow_log_metric("test_precision",test_scores[0][1],run_id)
+        self.mlflow_log_metric('test_picked', test_positives, run_id)
+        self.mlflow_log_metric("test_home_all", test_home_all,run_id)
+        self.mlflow_log_metric("test_model_profit", test_model_profit,run_id)
+        self.mlflow_log_metric("test_kelly_criterion", test_kelly_criterion,run_id)
 
+        # self.mlflow_log_metric("val_accuracy",val_scores[0],run_id)
+        # self.mlflow_log_metric("val_recall",val_scores[2],run_id)
+        # self.mlflow_log_metric("val_f1",val_scores[3],run_id)
+        # self.mlflow_log_metric("prof_underdogs", dog_profit_total,run_id)
+        # self.mlflow_log_metric("test_recall",scores[2],run_id)
+        # self.mlflow_log_metric("test_accuracy",scores[0],run_id)
         # self.mlflow_log_metric("prof_favorites",fav_profit_total)
         # self.mlflow_log_metric("prof_home", home_profit_total,run_id)
         # self.mlflow_log_metric("prof_draw", draw_profit_total)
@@ -371,7 +380,7 @@ class Trainer(object):
         # self.mlflow_log_metric("prof_v_draw", draw_profit_v_total)
         # self.mlflow_log_metric("prof_v_away", away_profit_v_total)
 
-        return season_profit
+        return test_scores
 
     def save_model(self, upload=True, auto_remove=True):
         """Save the model into a .joblib and upload it on Google Storage /models folder
@@ -417,36 +426,65 @@ if __name__ == '__main__':
         'home_w', 'away_w', 'draw', 'winning_odds']
 
 
-    experiment = "BeatTheBookies-M"
-    # models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','GaussianNB','XGBClassifier','RidgeClasifier', 'SVC', 'LDA']
+    experiment = "BeatTheBookies-final-model-12"
+    models = ['Logistic', 'KNNClassifier', 'RandomForestClassifier','XGBClassifier', 'SVC']
     # balancers = ['SMOTE', 'ADASYN', 'RandomOversampler', 'RandomUnderSampler', 'NearMiss']
     # models = ['Logistic', 'RandomForestClassifier','SVC','KNNClassifier']
-    models = ['XGBClassifier']
+    # models = ['XGBClassifier']
     balancers = ['SMOTE', 'RandomUnderSampler']
 
     # for mod in models:
-    #     for bal in balancers:
-    #         print(mod, bal, ':')
+    #     # for bal in balancers:
+    #     print(mod, ':')
+    #     params = dict(upload=True,
+    #                   test_season='2019/2020',
+    #                   local=True,  # set to False to get data from GCP (Storage or BigQuery)
+    #                   gridsearch=True,
+    #                   split=True,
+    #                   y_type='pct',
+    #                   balance=None,
+    #                   bet = 10,
+    #                   threshold=0.5,
+    #                   estimator=mod,
+    #                   mlflow=True,  # set to True to log params to mlflow
+    #                   experiment_name=experiment,
+    #                   pipeline_memory=None,
+    #                   feateng=['fifadiff','goaldiff','homeadv','shototpct','goalagdiff'],
+    #                   n_jobs=-1)
+    #     df, test_df = get_data(**params)
+    #     # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    #     X = df[cols]
+    #     y = df['home_w']
+    #     # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    #     X_test = test_df[cols]
+    #     y_test = test_df['home_w']
+    #     t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
+    #     print(colored("############  Training model   ############", "red"))
+    #     t.train()
+    #     print(colored("############  Evaluating model ############", "blue"))
+    #     t.evaluate()
+    # print(colored("############   Saving model    ############", "green"))
+    # t.save_model()
     params = dict(upload=True,
                   test_season='2019/2020',
                   local=True,  # set to False to get data from GCP (Storage or BigQuery)
                   gridsearch=False,
                   split=True,
                   y_type='pct',
-                  balance='SMOTE',
+                  balance=None,
                   bet = 10,
                   threshold=0.5,
-                  estimator='SVC',
+                  estimator='GaussianNB',
                   mlflow=True,  # set to True to log params to mlflow
                   experiment_name=experiment,
                   pipeline_memory=None,
-                  feateng=['fifadiff','windiff','goaldiff','homeadv','shototpct','goalagdiff'],
+                  feateng=['fifadiff','goaldiff','windiff','homeadv','shototpct','goalagdiff'],
                   n_jobs=-1)
     df, test_df = get_data(**params)
-    # X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X = df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X = df[cols]
     y = df['home_w']
-    # X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
+    X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee'])
     X_test = test_df[cols]
     y_test = test_df['home_w']
     t = Trainer(X=X, y=y, X_test=X_test, y_test=y_test, **params)
@@ -454,32 +492,7 @@ if __name__ == '__main__':
     t.train()
     print(colored("############  Evaluating model ############", "blue"))
     t.evaluate()
-    # print(colored("############   Saving model    ############", "green"))
-    # t.save_model()
-
-    # params = dict(upload=True,
-    #               local=False,  # set to False to get data from GCP (Storage or BigQuery)
-    #               gridsearch=False,
-    #               split=True,
-    #               optimize=False,
-    #               X_test = test_df.drop(columns=['FTR','HTR','home_team', 'away_team', 'season', 'date', 'Referee']),
-    #               y_test = test_df['under_win'],
-    #               y_type='pct',
-    #               balance='SMOTE',
-    #               bet = 100,
-    #               threshold = 0.85,
-    #               estimator='SVC',
-    #               mlflow=True,  # set to True to log params to mlflow
-    #               experiment_name=experiment,
-    #               pipeline_memory=None,
-    #               feateng=None,
-    # #               n_jobs=-1)
-    # t = Trainer(X=X, y=y, **params)
-    # print(colored("############  Training model   ############", "red"))
-    # t.train()
-    # print(colored("############  Evaluating model ############", "blue"))
-    # t.evaluate()
-    # print(colored("############   Saving model    ############", "green"))
-    # t.save_model()
+    print(colored("############   Saving model    ############", "green"))
+    t.save_model()
 
 
