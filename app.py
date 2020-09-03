@@ -7,7 +7,7 @@ import streamlit as st
 from flask_cors import CORS
 from flask import Flask
 from flask import request
-from random import randint, uniform
+from random import randint, uniform, choice
 
 
 from beatthebookies.gcp import download_model
@@ -165,67 +165,105 @@ def generate_game():
     game_df = pd.DataFrame(game, index=[0])
     return game_df
 
+# Would import this
+MATCHES = ['Manchester City vs. Manchester United',
+'West Ham United vs. Leicester City',
+'Crystal Palace vs. Arsenal',
+'Tottenham Hotspur vs. Chelsea',
+'Liverpool vs. Wolverhampton Wanderers',
+'Everton vs. Watford',
+'Newcastle United vs. Sheffield United',
+'Brighton & Hove Albion vs. AFC Bournemouth',
+'Aston Villa vs. Burnley',
+'Southampton vs. Norwich City']
 
 def main():
     analysis = st.sidebar.selectbox("Choose prediction type", ["2020/2021", "2019/2020"])
-
     if analysis == '2020/2021':
         pipeline = joblib.load(PATH_TO_MODEL)
         st.header("Beat the Bookies")
         # input from user with arbitary default team name suggestions and game week
-        home_team = st.selectbox('Home Team', TEAMS)
-        away_team = st.selectbox('Away Team', TEAMS)
+        match = st.selectbox('Select a Match', MATCHES)
+        if match[0] == 'M':
+            home_team = 'Manchester City'
+            away_team = 'Manchester United'
+        elif match[0] == 'W':
+            home_team = 'West Ham United'
+            away_team = 'Leicester City'
+        elif match[0] == 'C':
+            home_team = 'Crystal Palace'
+            away_team = 'Arsenal'
+        elif match[0] == 'T':
+            home_team = 'Tottenham Hotspur'
+            away_team = 'Chelsea'
+        elif match[0] == 'L':
+            home_team = 'Liverpool'
+            away_team = 'Wolverhampton Wanderers'
+        elif match[0] == 'E':
+            home_team = 'Everton'
+            away_team = 'Watford'
+        elif match[0] == 'N':
+            home_team = 'Newcastle United'
+            away_team = 'Sheffield United'
+        elif match[0] == 'B':
+            home_team = 'Brighton & Hove Albion'
+            away_team = 'AFC Bournemouth'
+        elif match[0] == 'A':
+            home_team = 'Aston Villa'
+            away_team = 'Burnley'
+        elif match[0] == 'S':
+            home_team = 'Southampton'
+            away_team = 'Norwich City'
         bet = st.number_input('Max Bet Per Game')
-        if home_team != away_team:
-            st.write('You selected:')
 
-            st.write('**Fifa Rankings**')
-            home_ranks = FIFA_DF[FIFA_DF['Team'] == home_team]
-            away_ranks = FIFA_DF[FIFA_DF['Team'] == away_team]
-            df = pd.concat([home_ranks, away_ranks], axis=0)
-            st.table(df.drop(columns='League').set_index('Team').style.highlight_max(axis=0))
-            game = generate_game()
-            home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
-                              'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against']]
-            away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
-                              'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
-            away_stats['Team'] = away_team
-            home_stats['Team'] = home_team
+        st.write('You selected:')
 
-            home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
-            away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
-            cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
-            home_show.columns = cols
-            away_show.columns = cols
+        st.write('**Fifa Rankings**')
+        home_ranks = FIFA_DF[FIFA_DF['Team'] == home_team]
+        away_ranks = FIFA_DF[FIFA_DF['Team'] == away_team]
+        df = pd.concat([home_ranks, away_ranks], axis=0)
+        st.table(df.drop(columns='League').set_index('Team').style.highlight_max(axis=0))
+        game = generate_game()
+        home_stats = game[['home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_home_goals', 'home_t_home_goals_against',
+                          'home_t_prev_home_matches', 'home_t_total_shots', 'home_t_total_shots_ot', 'home_t_total_goals_against']]
+        away_stats = game[['away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_away_goals', 'away_t_away_goals_against',
+                          'away_t_prev_away_matches', 'away_t_total_shots', 'away_t_total_shots_ot', 'away_t_total_goals_against']]
+        away_stats['Team'] = away_team
+        home_stats['Team'] = home_team
 
-            st.write('**Team Stats**')
-            stat_df = pd.concat([home_show, away_show], axis=0)
-            st.table(stat_df.set_index('Team'))
+        home_show =  home_stats[['Team','home_t_total_wins', 'home_t_total_losses', 'home_t_total_draws', 'home_t_total_goals', 'home_t_total_goals_against', 'home_t_total_shots', 'home_t_total_shots_ot']]
+        away_show =  away_stats[['Team','away_t_total_wins', 'away_t_total_losses', 'away_t_total_draws', 'away_t_total_goals', 'away_t_total_goals_against', 'away_t_total_shots', 'away_t_total_shots_ot']]
+        cols = ['Team', 'Wins', 'Losses', 'Draws', 'Goals', 'Goals Against', 'Shots', 'Shots On Target']
+        home_show.columns = cols
+        away_show.columns = cols
 
-            st.write('**Game Odds**')
-            odds = pd.DataFrame({'Home Win': round(uniform(1.3,3.5),2), 'Away Win': round(uniform(1.5,8),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
-            st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
-            odds['stage'] = game['stage']
-            game_stats = odds[['Home Win', 'Away Win', 'Draw', 'stage']]
-            game_stats.columns = ['WHH', 'WHA', 'WHD', 'stage']
-            to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks, 'home_stats': home_stats, 'away_stats': away_stats, 'game_stats': game_stats}
-            to_predict = [to_predict]
-            to_predict = [format_input(team) for team in to_predict]
-            X = pd.DataFrame(to_predict)
-            X = X[COLS]
-            prediction = pipeline.predict(X[COLS])[0]
-            prediction_proba = pipeline.predict_proba(X[COLS])[0][1]
-            kelly = kelly_prediction(prediction_proba, odds['Home Win'].values[0], bet)
-            if prediction == 1:
-                st.subheader(f"Your best bet is on the hometeam with {round(prediction_proba * 100,2)}% certainty")
-                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
-            else:
-                st.subheader(f"Not looking great for the hometeam, only a {round(prediction_proba * 100,2)}% chance of a win")
-                st.subheader(f"The kelly principle suggests a bet of £{kelly}")
-            st.markdown("**Place your bets with your favourite Bookmaker**")
+        st.write('**Team Stats**')
+        stat_df = pd.concat([home_show, away_show], axis=0)
+        st.table(stat_df.set_index('Team'))
+
+        st.write('**Game Odds**')
+        odds = pd.DataFrame({'Home Win': round(uniform(1.3,3.5),2), 'Away Win': round(uniform(1.5,8),2), 'Draw': round(uniform(2.5,4),2) }, index=[0])
+        st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
+        odds['stage'] = game['stage']
+        game_stats = odds[['Home Win', 'Away Win', 'Draw', 'stage']]
+        game_stats.columns = ['WHH', 'WHA', 'WHD', 'stage']
+        to_predict = {'home_rank': home_ranks, 'away_rank': away_ranks, 'home_stats': home_stats, 'away_stats': away_stats, 'game_stats': game_stats}
+        to_predict = [to_predict]
+        to_predict = [format_input(team) for team in to_predict]
+        X = pd.DataFrame(to_predict)
+        X = X[COLS]
+        prediction = pipeline.predict(X[COLS])[0]
+        prediction_proba = pipeline.predict_proba(X[COLS])[0][1]
+        kelly = kelly_prediction(prediction_proba, odds['Home Win'].values[0], bet)
+        if prediction == 1:
+            st.subheader(f"Your best bet is on the hometeam with {round(prediction_proba * 100,2)}% certainty")
+            st.subheader(f"The kelly principle suggests a bet of £{kelly}")
         else:
-            st.markdown("**Pick an Opponent**")
-            st.markdown("And Remember, please gamble responsibly, for more information visit https://www.begambleaware.org")
+            st.subheader(f"Not looking great for the hometeam, only a {round(prediction_proba * 100,2)}% chance of a win")
+            st.subheader(f"The kelly principle suggests a bet of £{kelly}")
+        st.markdown("**Place your bets with your favourite Bookmaker**")
+
+        st.markdown("Please gamble responsibly, for more information visit https://www.begambleaware.org")
 
     if analysis == "2019/2020":
 
@@ -241,7 +279,7 @@ def main():
 
         matchups = SEASON_DF[SEASON_DF['stage'] == stage]
         profits = []
-        for num in range(10):
+        for num in range(len(matchups)):
             game = matchups[num:num+1]
             ht = game.home_team.values[0]
             toc.header(f'{num + 1}. {ht} Match')
@@ -266,8 +304,8 @@ def main():
             st.write('**Team Stats**')
             stat_df = pd.concat([home_show, away_show], axis=0)
             st.table(stat_df.set_index('Team'))
-            odds = game[['WHH', 'WHA', 'WHD', 'FTR']]
-            odds.columns = ['Home Win', 'Away Win', 'Draw', 'Results']
+            odds = game[['WHH', 'WHA', 'WHD']]
+            odds.columns = ['Home Win', 'Away Win', 'Draw']
             st.write('**Game Odds**')
             st.table(odds.assign(hack='William Hill Odds').set_index('hack'))
             game_stats = game[['WHH','WHA', 'WHD', 'stage']]
@@ -279,25 +317,39 @@ def main():
             prediction = pipeline.predict(X[COLS])[0]
             prediction_proba = pipeline.predict_proba(X[COLS])[0][1]
             kelly = kelly_prediction(prediction_proba, game.WHH.values[0], bet)
+            outcome = game['FTR'].values[0]
             if prediction == 1:
                 st.subheader(f"Your best bet is on the hometeam with {round(prediction_proba * 100,2)}% certainty")
                 st.subheader(f"The kelly principle suggests a bet of £{kelly}")
-                if (odds['Results'].values[0] == 'H'):
+                if outcome == 'H':
                     profit = round((kelly * game.WHH.values[0]) - kelly, 2)
                     collection = round(kelly * game.WHH.values[0], 2)
                     profits.append(collection)
-                    st.write(f'Collect your £{collection}')
-                else:
+                    st.write("**Results**")
+                    st.write(f'Home Team Victory, collect your £{collection}')
+                elif outcome == 'D':
                     profit = -kelly
                     profits.append(profit)
-                    st.write("Nobody bats 1000")
+                    st.write("**Results**")
+                    st.write("Draw, sorry about that - close but no cigar")
+                elif outcome == 'A':
+                    profit = -kelly
+                    profits.append(profit)
+                    st.write("**Results**")
+                    st.write("Away Team Victory, yikes....well, nobody bats 1000")
+
             else:
                 st.subheader(f"Not looking great for the hometeam, only a {round(prediction_proba * 100,2)}% chance of a win")
                 st.subheader(f"The kelly principle suggests a bet of £{kelly}")
-                if (odds['Results'].values[0] == 'H'):
-                    st.write('Well, better safe than sorry')
-                else:
-                    st.write("Nailed it")
+                if outcome == 'H':
+                    st.write("**Results**")
+                    st.write('Home Team Vicoty, better safe than sorry!')
+                elif outcome == 'D':
+                    st.write("**Results**")
+                    st.write("Draw, that was close, but we told ya so")
+                elif outcome == 'A':
+                    st.write("**Results**")
+                    st.write("Away Team Victory, nailed it")
             st.markdown(href,unsafe_allow_html=True)
             st.write('___')
 
@@ -317,3 +369,5 @@ def main():
 if __name__ == "__main__":
     # app.run(host='127.0.0.1', port=8080, debug=True)
     main()
+
+
